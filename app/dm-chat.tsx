@@ -105,8 +105,8 @@ export default function DMChatScreen() {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
+  const [, setIsLoading] = useState(true);
+  const [, setIsSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const mapChatToMessage = useCallback(

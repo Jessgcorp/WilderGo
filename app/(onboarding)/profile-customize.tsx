@@ -37,7 +37,7 @@ export default function ProfileCustomizeScreen() {
       if (!result.canceled && result.assets[0]) {
         setPhotoUri(result.assets[0].uri);
       }
-    } catch (e) {
+    } catch {
       console.log("Image picker not available");
     }
   };

@@ -67,7 +67,7 @@
       "eas": {
         "projectId": "2817ea3f-7edb-47e1-a939-326cd3881b44"
       },
-      "apiBaseUrl": "https://aa60d38e-336a-4c6c-8c7a-2e8f4ae13a3f-00-37dgmtff0mvif.picard.replit.dev"
+      "apiBaseUrl": "http://192.168.0.104:5000"
     }
   }
 }

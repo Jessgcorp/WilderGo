@@ -16,7 +16,7 @@ import {
   Modal,
 } from "react-native";
 import { useRouter } from "@/hooks/useRouterCompat";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -27,7 +27,6 @@ import {
   spacing,
   borderRadius,
   shadows,
-  blur,
 } from "@/constants/theme";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ConvoyThread } from "@/components/convoy/ConvoyThread";
@@ -39,8 +38,6 @@ import {
   Convoy,
   ConvoyMember,
   convoyService,
-  getMemberStatusColor,
-  getMemberStatusLabel,
 } from "@/services/convoy/convoyService";
 
 interface Conversation {
@@ -157,27 +154,31 @@ export default function MessagesScreen() {
 
     fetchConversations(user.uid)
       .then((conversations) => {
-        if (conversations.length > 0) {
-          setConversationsList(
-            conversations.map((conversation) => ({
-              id: conversation.otherUid,
-              name: conversation.name,
-              lastMessage: conversation.lastMessage,
-              timestamp: new Date(
-                conversation.lastTimestamp,
-              ).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              unread: conversation.unreadCount,
-              online: true,
-              avatar: conversation.avatar,
-            })),
-          );
+        if (!Array.isArray(conversations) || conversations.length === 0) {
+          setConversationsList([]);
+          return;
         }
+
+        setConversationsList(
+          conversations.map((conversation) => ({
+            id: conversation.otherUid,
+            name: conversation.name,
+            lastMessage: conversation.lastMessage,
+            timestamp: new Date(
+              conversation.lastTimestamp,
+            ).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            unread: conversation.unreadCount,
+            online: true,
+            avatar: conversation.avatar,
+          })),
+        );
       })
       .catch((error) => {
-        console.error("Failed to fetch conversations:", error);
+        console.warn("Failed to fetch conversations:", error);
+        setConversationsList([]);
       });
   }, [user?.uid]);
 
@@ -522,7 +523,10 @@ export default function MessagesScreen() {
             onOpenMap={(lat, lng) => {
               setShowConvoyThread(false);
               setTimeout(() => {
-                navigation.navigate("Map", { latitude: lat, longitude: lng });
+                router.push({
+                  pathname: "/(tabs)/map",
+                  params: { latitude: lat, longitude: lng }
+                });
               }, 300);
             }}
             onViewMember={(member) => {

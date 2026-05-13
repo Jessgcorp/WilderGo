@@ -28,12 +28,17 @@ export interface ConversationSummary {
 export async function fetchConversations(
   userUid: string,
 ): Promise<ConversationSummary[]> {
-  const response = await apiRequest(
-    "GET",
-    `/api/messages/conversations/${encodeURIComponent(userUid)}`,
-  );
-  const data = await response.json();
-  return data.conversations || [];
+  try {
+    const response = await apiRequest(
+      "GET",
+      `/api/messages/conversations/${encodeURIComponent(userUid)}`,
+    );
+    const data = await response.json();
+    return data.conversations || [];
+  } catch (error) {
+    console.warn("fetchConversations failed, returning empty list:", error);
+    return [];
+  }
 }
 
 export async function fetchConversationThread(

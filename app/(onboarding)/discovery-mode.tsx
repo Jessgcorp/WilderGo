@@ -19,7 +19,6 @@ import {
   typography,
   spacing,
   borderRadius,
-  shadows,
   natureImages,
 } from "@/constants/theme";
 import * as Haptics from "expo-haptics";

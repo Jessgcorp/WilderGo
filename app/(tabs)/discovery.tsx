@@ -5,17 +5,15 @@
  * Builder: Professional directory (no swiping)
  */
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   Animated,
-  PanResponder,
   TouchableOpacity,
   ScrollView,
-  RefreshControl,
   Modal,
   Platform,
 } from "react-native";
@@ -36,7 +34,7 @@ import {
 } from "@/constants/theme";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Logo } from "@/components/ui/Logo";
-import { useMode, AppMode, modeThemes } from "@/contexts/ModeContext";
+import { useMode, AppMode } from "@/contexts/ModeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { FriendsProfileCard } from "@/components/profiles/FriendsProfileCard";
 import {
@@ -50,8 +48,6 @@ import { OutdoorEvents } from "@/components/events/OutdoorEvents";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width - spacing.xl * 2;
-const SWIPE_THRESHOLD = width * 0.15; // Reduced from 25% to 15% for easier swiping
-const SWIPE_VELOCITY_THRESHOLD = 0.3; // Quick flicks trigger swipe even with less distance
 
 // Mode-specific data interfaces
 interface ActivityWithLevel {
@@ -259,59 +255,67 @@ const friendsProfiles: FriendsProfile[] = [
 export const builderProfiles: BuilderProfile[] = [
   {
     id: "1",
-    name: "Sarah Chen",
-    businessName: "Sarah's Solar Systems",
+    name: "Sarah Solar Solutions",
+    businessName: "Sarah Solar Solutions",
     imageUrl: profileImages.sarah,
-    location: "Denver, CO",
+    location: "Sedona, AZ",
     rating: 4.9,
-    reviewCount: 47,
+    reviewCount: 84,
     verified: true,
-    expertise: ["Solar Installation", "Battery Systems", "Electrical"],
+    expertise: [
+      "Solar Installation",
+      "Battery Systems",
+      "Inverters",
+    ],
     specialties: [
       { name: "Solar", icon: "sunny" },
-      { name: "Lithium", icon: "battery-charging" },
-      { name: "Off-Grid", icon: "flash" },
+      { name: "Battery", icon: "battery-charging" },
+      { name: "Inverter", icon: "flash" },
     ],
-    consultationRate: 75,
+    consultationRate: 95,
     portfolioImages: [natureImages.vanInterior, eventImages.bonfire],
-    bio: "15 years electrical experience. Specialized in complete off-grid solar systems for van conversions.",
+    bio: "Verified solar specialist for rig electrics, battery banks, and efficient off-grid power systems.",
     certifications: ["NABCEP Certified", "Licensed Electrician"],
   },
   {
     id: "2",
-    name: "Mike Thompson",
-    businessName: "VanTech Conversions",
-    imageUrl: profileImages.mike,
-    location: "Portland, OR",
+    name: "Trail Wanderer",
+    businessName: "Trail Wanderer",
+    imageUrl: profileImages.sam,
+    location: "Moab, UT",
     rating: 4.8,
-    reviewCount: 32,
+    reviewCount: 61,
     verified: true,
-    expertise: ["Full Builds", "Custom Cabinetry", "Insulation"],
-    specialties: [
-      { name: "Full Build", icon: "construct" },
-      { name: "Woodwork", icon: "cube" },
-      { name: "Design", icon: "color-palette" },
+    expertise: [
+      "Overland Wiring",
+      "Remote Power",
+      "Solar Design",
     ],
-    consultationRate: 100,
-    portfolioImages: [natureImages.vanInterior],
-    bio: "Complete van conversions from bare metal to move-in ready. Custom designs that maximize your space.",
+    specialties: [
+      { name: "Wiring", icon: "flash" },
+      { name: "Solar", icon: "sunny" },
+      { name: "Off-Grid", icon: "compass" },
+    ],
+    consultationRate: 85,
+    portfolioImages: [natureImages.vanInterior, eventImages.bonfire],
+    bio: "Overland builder with expertise in rugged rigs, remote power installs, and portable solar systems.",
+    certifications: ["Off-Grid Pro", "EV Safe"],
   },
 ];
 
 export default function DiscoveryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { mode, setMode, theme, isPremium } = useMode();
+  const { mode, setMode, isPremium } = useMode();
   const { user } = useAuth();
   const [localMode, setLocalMode] = useState<AppMode>(mode);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [, setCurrentIndex] = useState(0);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [selectedNomad, setSelectedNomad] = useState<FriendsProfile | null>(
     null,
   );
   const [connectionSent, setConnectionSent] = useState(false);
-  const [refreshingFriends, setRefreshingFriends] = useState(false);
   const [showPortfolioModal, setShowPortfolioModal] =
     useState<BuilderProfile | null>(null);
   const [showBookingModal, setShowBookingModal] =
@@ -319,32 +323,12 @@ export default function DiscoveryScreen() {
 
   // Handler for messaging a builder
   const handleMessageBuilder = (builder: BuilderProfile) => {
-    router.push("Messages");
+    router.push("/messages");
   };
 
   // Handler for viewing all builders
   const handleViewAllBuilders = () => {
     router.push("/builders");
-  };
-
-  // Button press animation
-  const buttonScaleAnim = useRef(new Animated.Value(1)).current;
-
-  const animateButtonPress = (callback?: () => void) => {
-    Animated.sequence([
-      Animated.timing(buttonScaleAnim, {
-        toValue: 0.92,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      if (callback) callback();
-    });
   };
 
   const handleConnectNomad = (profile: FriendsProfile) => {
@@ -356,11 +340,6 @@ export default function DiscoveryScreen() {
   const handleMessageNomad = (profile: FriendsProfile) => {
     router.push("/messages");
   };
-
-  const onRefreshFriends = useCallback(() => {
-    setRefreshingFriends(true);
-    setTimeout(() => setRefreshingFriends(false), 650);
-  }, []);
 
   const sendConnectionRequest = () => {
     setConnectionSent(true);
@@ -406,84 +385,6 @@ export default function DiscoveryScreen() {
     ).start();
   }, [glowAnim, pulseAnim]);
 
-  const position = useRef(new Animated.ValueXY()).current;
-  const rotate = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: ["-10deg", "0deg", "10deg"],
-    extrapolate: "clamp",
-  });
-
-  const likeOpacity = position.x.interpolate({
-    inputRange: [0, width / 4],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  const nopeOpacity = position.x.interpolate({
-    inputRange: [-width / 4, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-
-  const nextCardScale = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: [1, 0.92, 1],
-    extrapolate: "clamp",
-  });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        position.setValue({ x: gestureState.dx, y: gestureState.dy });
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        // Check velocity first - quick flicks work even with less distance
-        const isQuickSwipeRight = gestureState.vx > SWIPE_VELOCITY_THRESHOLD;
-        const isQuickSwipeLeft = gestureState.vx < -SWIPE_VELOCITY_THRESHOLD;
-
-        if (gestureState.dx > SWIPE_THRESHOLD || isQuickSwipeRight) {
-          swipeRight();
-        } else if (gestureState.dx < -SWIPE_THRESHOLD || isQuickSwipeLeft) {
-          swipeLeft();
-        } else {
-          resetPosition();
-        }
-      },
-    }),
-  ).current;
-
-  const swipeRight = () => {
-    Animated.timing(position, {
-      toValue: { x: width + 100, y: 0 },
-      duration: 200, // Faster animation for snappier feel
-      useNativeDriver: false,
-    }).start(() => onSwipeComplete("like"));
-  };
-
-  const swipeLeft = () => {
-    Animated.timing(position, {
-      toValue: { x: -width - 100, y: 0 },
-      duration: 200, // Faster animation for snappier feel
-      useNativeDriver: false,
-    }).start(() => onSwipeComplete("nope"));
-  };
-
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      tension: 80, // Higher tension = faster spring back
-      friction: 8,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const onSwipeComplete = (_action: "like" | "nope") => {
-    setCurrentIndex((prev) => prev + 1);
-    position.setValue({ x: 0, y: 0 });
-  };
-
   const handleModeChange = (newMode: AppMode) => {
     if (newMode === localMode) return;
     setLocalMode(newMode);
@@ -499,10 +400,6 @@ export default function DiscoveryScreen() {
 
   const getModeTitle = () => {
     return localMode === "friends" ? "Friends" : "Builders";
-  };
-
-  const getBackgroundVariant = () => {
-    return mode === "friends" ? "forest" : "canyon";
   };
 
   // Render Friends Mode - Scrollable list
@@ -579,19 +476,16 @@ export default function DiscoveryScreen() {
         {/* Quick Connect Section */}
         <View style={styles.quickConnectSection}>
           <Text style={styles.sectionTitle}>Quick Connect</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickConnectList}
-          >
+          <View style={styles.quickConnectList}>
             {builderProfiles.map((builder) => (
-              <BuilderCompactCard
-                key={builder.id}
-                profile={builder}
-                onPress={() => setShowBookingModal(builder)}
-              />
+              <View key={builder.id} style={styles.quickConnectCard}>
+                <BuilderCompactCard
+                  profile={builder}
+                  onPress={() => setShowBookingModal(builder)}
+                />
+              </View>
             ))}
-          </ScrollView>
+          </View>
         </View>
       </ScrollView>
     );
@@ -1141,16 +1035,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.xl,
     fontFamily: typography.fontFamily.heading,
     color: colors.bark[900],
-    textTransform: "uppercase",
-    letterSpacing: typography.letterSpacing.wide,
+    letterSpacing: typography.letterSpacing.normal,
   },
   viewAllText: {
     fontSize: typography.fontSize.sm,
     fontFamily: typography.fontFamily.bodySemiBold,
-    color: colors.driftwood[400],
+    color: colors.text.secondary,
   },
   quickConnectSection: {
     marginBottom: spacing.xl,
@@ -1158,6 +1051,11 @@ const styles = StyleSheet.create({
   quickConnectList: {
     paddingTop: spacing.md,
     gap: spacing.md,
+    width: "100%",
+  },
+  quickConnectCard: {
+    width: "100%",
+    marginBottom: spacing.md,
   },
   modalOverlay: {
     flex: 1,

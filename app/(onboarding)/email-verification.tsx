@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, spacing, borderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { NatureBackground } from "@/components/ui/NatureBackground";
 import { Logo } from "@/components/ui/Logo";
 import { useAuth } from "@/contexts/AuthContext";
@@ -60,7 +59,7 @@ export default function EmailVerificationScreen() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [checkEmailVerified]);
+  }, [checkEmailVerified, router]);
 
   const handleResend = async () => {
     setResendLoading(true);

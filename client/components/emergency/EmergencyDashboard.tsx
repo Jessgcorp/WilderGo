@@ -1,6 +1,6 @@
 /**
  * Emergency Help Dashboard
- * Clean, distraction-free SOS screen for urgent situations
+ * Community SOS at launch; Satellite SOS as regional density thresholds are met
  * Focus on clarity and quick action
  */
 
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Linking,
+  Alert,
   Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -119,9 +120,9 @@ const GETTING_STARTED_STEPS = [
   },
   {
     icon: "warning" as const,
-    title: "Use SOS When Needed",
+    title: "Community SOS",
     content:
-      "If you need help, tap an emergency category to broadcast to nearby nomads who can assist.",
+      "If you need help, choose a category to broadcast to nearby nomads on the localized mesh. Satellite SOS will extend reach for offline travelers as regions like Colorado and Utah cross rollout thresholds.",
   },
 ];
 
@@ -130,7 +131,12 @@ const FAQS = [
   {
     question: "How do I request help in an emergency?",
     answer:
-      "From the Help tab, select the type of help you need (Mechanical, Medical, Security, or Supplies). Describe your situation and broadcast to nearby nomads.",
+      "From the Help tab, open Community SOS and pick the type of help you need (Mechanical, Medical, Security, or Supplies). Your request goes to nearby verified nomads on the localized mesh. Satellite SOS — with Apple satellite connectivity for offline users through the same responder network — rolls on as regions hit density thresholds.",
+  },
+  {
+    question: "What is Community SOS vs. Satellite SOS?",
+    answer:
+      "Community SOS is what we ship at launch: a localized WilderGo safety network where nearby verified nomads receive your broadcast on the mesh. Satellite SOS is a planned layer that turns on as regions like Colorado and Utah hit user-density thresholds. It uses Apple’s satellite connectivity—including geostationary coverage where supported—so travelers without cell service can still reach the same pool of human responders.",
   },
   {
     question: "What is a Convoy?",
@@ -145,7 +151,7 @@ const FAQS = [
   {
     question: "Can I use WilderGo offline?",
     answer:
-      "Premium members can download offline maps for areas with limited connectivity. Basic features require an internet connection.",
+      "Community SOS works best when you have connectivity so nearby nomads can see your broadcast. Premium members can download offline maps for areas with limited service. As regions reach user-density goals, Satellite SOS will add Apple satellite connectivity so offline travelers can still reach the same human mesh of responders.",
   },
   {
     question: "How do I report inappropriate content?",
@@ -163,7 +169,7 @@ const FAQS = [
       "Earned Patches are badges displayed on your profile that recognize your achievements and contributions to the WilderGo community. Here are the patches you can earn:\n\n" +
       "Trail Blazer - Awarded when you discover and share 10 new trail locations with the community.\n\n" +
       "Road Warrior - Earned after logging 5,000+ miles on your nomadic journeys tracked through WilderGo.\n\n" +
-      "Good Samaritan - Given when you respond to and help with 5 or more SOS help requests from fellow nomads.\n\n" +
+      "Good Samaritan - Given when you respond to and help with 5 or more Community SOS requests from fellow nomads.\n\n" +
       "Convoy Captain - Unlocked after leading 3 or more convoys with other travelers.\n\n" +
       "Campfire Host - Awarded for organizing 5 community meetups or events through the app.\n\n" +
       "Off-Grid Pro - Earned by spending 30+ cumulative days in off-grid locations tracked by the app.\n\n" +
@@ -183,7 +189,7 @@ const FAQS = [
       "- A verified badge on your profile, visible to all other users.\n" +
       "- Full access to messaging and convoy features.\n" +
       "- The ability to appear in Discovery and connect with other nomads.\n" +
-      "- Higher trust ranking in SOS help responses.\n\n" +
+      "- Higher trust ranking in Community SOS help responses.\n\n" +
       "Your selfie is used only for verification and is stored securely. You can re-verify at any time from your Profile settings.",
   },
   {
@@ -194,16 +200,17 @@ const FAQS = [
       "- Selfie Verification: All users must verify their identity with a live selfie, so you know who you are meeting.\n" +
       "- Profile Trust Indicators: Verified badges, earned patches, and community ratings help you assess trustworthiness.\n" +
       "- Convoy System: Travel in groups with real-time location sharing so your convoy always knows where you are.\n" +
-      "- SOS Emergency Broadcast: One-tap emergency alerts notify nearby nomads and share your GPS location instantly.\n" +
+      "- Community SOS: One-tap broadcasts to nearby verified nomads on the localized mesh.\n" +
+      "- Satellite SOS (regional rollout): Apple satellite connectivity for offline users, delivered through the same responder network as density thresholds are met.\n" +
       "- Report and Block: Easily report suspicious behavior or block users directly from their profile or messages.\n\n" +
       "Safety Best Practices:\n" +
       "- Always meet in public areas or well-populated campgrounds for first meetings.\n" +
       "- Share your travel plans and location with a trusted friend or family member outside the app.\n" +
       "- Join a convoy when traveling through remote areas rather than going solo.\n" +
-      "- Trust your instincts. If something feels off, use the SOS feature or leave the situation.\n" +
+      "- Trust your instincts. If something feels off, use Community SOS or leave the situation.\n" +
       "- Check a user's verification status, patches, and community standing before meeting in person.\n" +
       "- Keep your vehicle fueled and maintained so you can leave any situation quickly if needed.\n\n" +
-      "If you ever feel unsafe, tap the SOS button on the Help tab to immediately broadcast your location and request assistance from nearby verified nomads.",
+      "If you ever feel unsafe, open Community SOS from the Help tab to broadcast your location and request assistance from nearby verified nomads.",
   },
 ];
 
@@ -219,6 +226,7 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
   const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
   const [showFAQsModal, setShowFAQsModal] = useState(false);
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
+  const [view, setView] = useState<'main' | 'categories'>('main');
 
   const handleContactSupport = () => {
     Linking.openURL(
@@ -291,7 +299,11 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
             />
           </View>
           <Text style={styles.headerTitle}>SOS</Text>
-          <Text style={styles.headerSubtitle}>Get help from nearby nomads</Text>
+          <Text style={styles.headerSubtitle}>
+            Your localized WilderGo safety net — nearby verified nomads can
+            respond when you broadcast. Satellite SOS joins the same mesh as
+            regions hit density goals.
+          </Text>
         </View>
 
         {/* Active Request Banner */}
@@ -334,20 +346,63 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
           <Ionicons name="chevron-forward" size={18} color={colors.bark[400]} />
         </TouchableOpacity>
 
-        {/* Section Title */}
-        <Text style={styles.sectionTitle}>What do you need help with?</Text>
+        {view === 'main' ? (
+          <View style={styles.mainButtonsContainer}>
+            <TouchableOpacity
+              style={styles.communitySOSButton}
+              onPress={() => setView('categories')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.sunsetOrange[500], colors.burntSienna[500]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.communitySOSGradient}
+              >
+                <View style={styles.communitySOSContent}>
+                  <Ionicons name="people" size={24} color="#FFF" />
+                  <Text style={styles.communitySOSTitle}>Community SOS (Online)</Text>
+                  <Text style={styles.communitySOSSubtitle}>
+                    Broadcast to nearby verified nomads on the localized mesh
+                  </Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.satelliteSOSButton}
+              onPress={() => Alert.alert(
+                'Feature Locked',
+                'Satellite Relay is currently locked. Help us reach 5,000 Nomads in Colorado to activate this region!'
+              )}
+              activeOpacity={0.6}
+            >
+              <View style={styles.satelliteSOSContent}>
+                <Ionicons name="radio" size={24} color={colors.bark[300]} />
+                <Text style={styles.satelliteSOSTitle}>Satellite SOS (Offline)</Text>
+                <Text style={styles.satelliteSOSSubtitle}>
+                  Apple satellite connectivity for offline users
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* Section Title */}
+            <Text style={styles.sectionTitle}>What do you need help with?</Text>
 
-        {/* Category Cards - 2x2 Grid */}
-        <View style={styles.categoriesGrid}>
-          <View style={styles.categoryRow}>
-            {renderCategoryCard("mechanical")}
-            {renderCategoryCard("medical")}
-          </View>
-          <View style={styles.categoryRow}>
-            {renderCategoryCard("security")}
-            {renderCategoryCard("supplies")}
-          </View>
-        </View>
+            {/* Category Cards - 2x2 Grid */}
+            <View style={styles.categoriesGrid}>
+              <View style={styles.categoryRow}>
+                {renderCategoryCard("mechanical")}
+                {renderCategoryCard("medical")}
+              </View>
+              <View style={styles.categoryRow}>
+                {renderCategoryCard("security")}
+                {renderCategoryCard("supplies")}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Nearby Helpers Section */}
         <View style={styles.sectionHeaderRow}>
@@ -743,9 +798,12 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontFamily: typography.fontFamily.body,
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     color: "#2A2A2A",
     textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: spacing.md,
+    opacity: 0.92,
   },
   activeRequestBanner: {
     borderRadius: borderRadius.liquid,
@@ -1149,6 +1207,60 @@ const styles = StyleSheet.create({
     color: colors.bark[600],
     marginTop: spacing.md,
     lineHeight: typography.fontSize.sm * 1.5,
+  },
+  mainButtonsContainer: {
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  communitySOSButton: {
+    borderRadius: borderRadius.liquidLg,
+    overflow: "hidden",
+    marginBottom: spacing.md,
+  },
+  communitySOSGradient: {
+    borderRadius: borderRadius.liquidLg,
+  },
+  communitySOSContent: {
+    padding: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  communitySOSTitle: {
+    fontFamily: typography.fontFamily.heading,
+    fontSize: typography.fontSize.lg,
+    color: "#FFF",
+    textAlign: "center",
+  },
+  communitySOSSubtitle: {
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.sm,
+    color: "#FFF",
+    textAlign: "center",
+    opacity: 0.9,
+  },
+  satelliteSOSButton: {
+    backgroundColor: colors.bark[100],
+    borderRadius: borderRadius.liquidLg,
+    borderWidth: 1,
+    borderColor: colors.bark[200],
+    opacity: 0.6,
+  },
+  satelliteSOSContent: {
+    padding: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  satelliteSOSTitle: {
+    fontFamily: typography.fontFamily.heading,
+    fontSize: typography.fontSize.lg,
+    color: colors.bark[300],
+    textAlign: "center",
+  },
+  satelliteSOSSubtitle: {
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.sm,
+    color: colors.bark[400],
+    textAlign: "center",
   },
 });
 

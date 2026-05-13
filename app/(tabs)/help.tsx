@@ -1,7 +1,6 @@
 /**
  * Help Tab Screen
- * Emergency Help Mode - SOS Ecosystem
- * Liquid iOS aesthetic with Russo One headers
+ * Community SOS (localized mesh) + emergency resources
  */
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -34,10 +33,87 @@ export default function HelpScreen() {
 
   // AI Icebreakers for responders
   const [aiIcebreakers, setAiIcebreakers] = useState<string[]>([]);
-  const [respondedToAlert, setRespondedToAlert] = useState(false);
+  const [, setRespondedToAlert] = useState(false);
 
   // AI Triage hook for generating icebreakers
   const { getIcebreakers } = useEmergencyTriage();
+
+  // Generate AI icebreakers for an incoming alert
+  const generateIcebreakersForAlert = useCallback(
+    async (alert: NearbyAlert) => {
+      try {
+        const result = await getIcebreakers({
+          category: alert.request.category,
+          priority: alert.request.priority,
+          description: alert.request.description,
+          responderDistance: alert.distance,
+        });
+
+        if (result?.messages) {
+          setAiIcebreakers(result.messages);
+        } else {
+          // Fallback icebreakers
+          setAiIcebreakers([
+            "I'm nearby and can help - hang tight!",
+            "I have tools in my rig, heading your way now",
+          ]);
+        }
+      } catch {
+        // Fallback icebreakers on error
+        setAiIcebreakers([
+          "I'm nearby and can help - hang tight!",
+          "Fellow nomad here - on my way!",
+        ]);
+      }
+    },
+    [getIcebreakers],
+  );
+
+  const simulateResponses = useCallback((requestId: string) => {
+    // Simulate first responder after 5 seconds
+    setTimeout(() => {
+      setResponses((prev) => [
+        ...prev,
+        {
+          id: "response-1",
+          requestId,
+          responderId: "responder-1",
+          responderName: "Mike T.",
+          message: "I'm about 4 miles away, heading your way!",
+          eta: "12 min",
+          distance: 4.2,
+          status: "en_route",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      setActiveRequest((prev) =>
+        prev ? { ...prev, respondersCount: 1 } : null,
+      );
+    }, 5000);
+
+    // Simulate second responder after 8 seconds
+    setTimeout(() => {
+      setResponses((prev) => [
+        ...prev,
+        {
+          id: "response-2",
+          requestId,
+          responderId: "responder-2",
+          responderName: "Alex K.",
+          message: "I have some basic tools if you need them",
+          eta: "18 min",
+          distance: 6.8,
+          status: "offered",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      setActiveRequest((prev) =>
+        prev ? { ...prev, respondersCount: 2 } : null,
+      );
+    }, 8000);
+  }, []);
 
   // Simulate incoming alerts (for demo purposes)
   useEffect(() => {
@@ -85,38 +161,7 @@ export default function HelpScreen() {
     }, 30000);
 
     return () => clearTimeout(timer);
-  }, [screenState, activeRequest]);
-
-  // Generate AI icebreakers for an incoming alert
-  const generateIcebreakersForAlert = useCallback(
-    async (alert: NearbyAlert) => {
-      try {
-        const result = await getIcebreakers({
-          category: alert.request.category,
-          priority: alert.request.priority,
-          description: alert.request.description,
-          responderDistance: alert.distance,
-        });
-
-        if (result?.messages) {
-          setAiIcebreakers(result.messages);
-        } else {
-          // Fallback icebreakers
-          setAiIcebreakers([
-            "I'm nearby and can help - hang tight!",
-            "I have tools in my rig, heading your way now",
-          ]);
-        }
-      } catch {
-        // Fallback icebreakers on error
-        setAiIcebreakers([
-          "I'm nearby and can help - hang tight!",
-          "Fellow nomad here - on my way!",
-        ]);
-      }
-    },
-    [getIcebreakers],
-  );
+  }, [screenState, activeRequest, generateIcebreakersForAlert]);
 
   const handleSelectCategory = useCallback((category: EmergencyCategory) => {
     setSelectedCategory(category);
@@ -153,57 +198,10 @@ export default function HelpScreen() {
       setScreenState("active");
 
       // Simulate responses coming in
-      simulateResponses();
+      simulateResponses(newRequest.id);
     },
-    [],
+    [simulateResponses],
   );
-
-  const simulateResponses = useCallback(() => {
-    // Simulate first responder after 5 seconds
-    setTimeout(() => {
-      setResponses((prev) => [
-        ...prev,
-        {
-          id: "response-1",
-          requestId: activeRequest?.id || "",
-          responderId: "responder-1",
-          responderName: "Mike T.",
-          message: "I'm about 4 miles away, heading your way!",
-          eta: "12 min",
-          distance: 4.2,
-          status: "en_route",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      // Update notified count
-      setActiveRequest((prev) =>
-        prev ? { ...prev, respondersCount: 1 } : null,
-      );
-    }, 5000);
-
-    // Simulate second responder after 8 seconds
-    setTimeout(() => {
-      setResponses((prev) => [
-        ...prev,
-        {
-          id: "response-2",
-          requestId: activeRequest?.id || "",
-          responderId: "responder-2",
-          responderName: "Alex K.",
-          message: "I have some basic tools if you need them",
-          eta: "18 min",
-          distance: 6.8,
-          status: "offered",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      setActiveRequest((prev) =>
-        prev ? { ...prev, respondersCount: 2 } : null,
-      );
-    }, 8000);
-  }, [activeRequest?.id]);
 
   const handleCancelRequest = useCallback(() => {
     setActiveRequest(null);

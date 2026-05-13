@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -17,7 +23,6 @@ import MapView from "react-native-maps";
 import { NativeMap } from "@/components/map/NativeMap";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   colors,
   typography,
@@ -26,53 +31,29 @@ import {
   shadows,
   eventImages,
   mapboxConfig,
-  markerTypes,
 } from "@/constants/theme";
-import { ModeToggle, AppMode } from "@/components/ui/ModeToggle";
-import { Button } from "@/components/ui/Button";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { NatureBackground } from "@/components/ui/NatureBackground";
-import { Logo } from "@/components/ui/Logo";
-import { MapMarker } from "@/components/map/MapMarker";
-import { MapControls } from "@/components/map/MapControls";
 import { MapSocialSheet } from "@/components/map/MapSocialSheet";
 import { AIRoutePlanner } from "@/components/map/AIRoutePlanner";
 import { SmartRouteWeather } from "@/components/map/SmartRouteWeather";
 import { SmartRouteScreen } from "@/components/map/SmartRouteScreen";
 import {
-  GhostModeMarker,
-  GhostModeIndicator,
-} from "@/components/map/GhostModeMarker";
-import { LookAheadRadar } from "@/components/radar/LookAheadRadar";
-import { NotificationBanner } from "@/components/radar/RouteOverlapNotifications";
-import { EnhancedWeatherHUD } from "@/components/map/EnhancedWeatherHUD";
-import {
   DynamicWeatherOverlay,
   WeatherOverlayData,
 } from "@/components/map/DynamicWeatherOverlay";
-import {
-  WeatherChangeAlert,
-  RouteWeatherTimeline,
-  WeatherChange,
-  RouteWeatherPoint,
-} from "@/components/weather";
+import { WeatherChange, RouteWeatherPoint } from "@/components/weather";
 import { WeatherDetailModal } from "@/components/weather/WeatherDetailModal";
 import {
-  EnhancedCampfireMarker,
   ClusterVibeSheet,
-  useEnhancedClustering,
-  EnhancedCluster,
+  type EnhancedCluster,
 } from "@/components/map/EnhancedCampfireCluster";
-import { useGhostMode, useMode } from "@/contexts/ModeContext";
-import {
-  radarService,
-  RouteOverlapNotification,
-} from "@/services/radar/radarService";
+import { useGhostMode, useMode, type AppMode } from "@/contexts/ModeContext";
+import { radarService } from "@/services/radar/radarService";
 import {
   mapService,
   MapMarkerData,
   SmartRouteSuggestion,
 } from "@/services/map/mapService";
+import { LookAheadRadar } from "@/components/radar/LookAheadRadar";
 import { getWeatherForLocation } from "@/services/map/advancedMapService";
 import { getCurrentWeather } from "@/services/weather/weatherService";
 
@@ -83,7 +64,7 @@ type Region = {
   longitudeDelta: number;
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface ActivityEvent {
   id: string;
@@ -96,6 +77,13 @@ interface ActivityEvent {
   location: string;
   imageUrl?: string;
   description?: string;
+  // Ghost Hosting fields
+  hostId: string;
+  isLocationPrivate: boolean;
+  requestedGuests: string[];
+  approvedGuests: string[];
+  latitude: number;
+  longitude: number;
 }
 
 // Helper to map weather condition strings to overlay types
@@ -131,6 +119,12 @@ const nearbyEvents: ActivityEvent[] = [
     imageUrl: eventImages.bonfire,
     description:
       "Join us for an evening under the stars with good company and warm vibes.",
+    hostId: "host-alex-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-123"],
+    approvedGuests: ["user-456"],
+    latitude: 38.5733,
+    longitude: -109.5498,
   },
   {
     id: "2",
@@ -143,6 +137,12 @@ const nearbyEvents: ActivityEvent[] = [
     imageUrl: eventImages.climbing,
     description:
       "Looking for experienced climbers to tackle the Fisher Towers.",
+    hostId: "host-jordan-id",
+    isLocationPrivate: false,
+    requestedGuests: [],
+    approvedGuests: [],
+    latitude: 36.1358,
+    longitude: -115.4255,
   },
   {
     id: "3",
@@ -153,13 +153,19 @@ const nearbyEvents: ActivityEvent[] = [
     time: "Saturday 5am",
     location: "Delicate Arch Trail",
     imageUrl: eventImages.hiking,
+    hostId: "host-sam-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-789"],
+    approvedGuests: [],
+    latitude: 38.7436,
+    longitude: -109.4993,
   },
 ];
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { mode: globalMode, setMode, setPremium } = useMode();
-  const [activeMode, setActiveMode] = useState<AppMode>(globalMode);
+  const [activeMode, setActiveMode] = useState(globalMode);
   const [showEvents, setShowEvents] = useState(true);
   const [selectedMarker, setSelectedMarker] = useState<MapMarkerData | null>(
     null,
@@ -168,9 +174,6 @@ export default function MapScreen() {
   const [routePlannerVisible, setRoutePlannerVisible] = useState(false);
   const [lookAheadVisible, setLookAheadVisible] = useState(false);
   const [markers, setMarkers] = useState<MapMarkerData[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [routeOverlapNotification, setRouteOverlapNotification] =
-    useState<RouteOverlapNotification | null>(null);
   const [showWeatherOverlay] = useState(true);
   const [weatherData, setWeatherData] = useState<WeatherOverlayData | null>(
     null,
@@ -179,9 +182,6 @@ export default function MapScreen() {
     useState<EnhancedCluster | null>(null);
   const [clusterSheetVisible, setClusterSheetVisible] = useState(false);
   const [weatherChanges, setWeatherChanges] = useState<WeatherChange[]>([]);
-  const [routeWeatherPoints, setRouteWeatherPoints] = useState<
-    RouteWeatherPoint[]
-  >([]);
   const [showWeatherAlerts, setShowWeatherAlerts] = useState(true);
   const [currentAlertIndex, setCurrentAlertIndex] = useState(0);
   const [alertsShownOnce, setAlertsShownOnce] = useState(false);
@@ -195,6 +195,8 @@ export default function MapScreen() {
   const [locationPermission, setLocationPermission] =
     useState<Location.PermissionStatus | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  // Mock user ID for demo - in real app would come from auth context
+  const [currentUserId] = useState("current-user");
   const [liveWeather, setLiveWeather] = useState<{
     temperature: number;
     condition: string;
@@ -211,7 +213,7 @@ export default function MapScreen() {
   const [showSmartRouteScreen, setShowSmartRouteScreen] = useState(false);
 
   // Ghost mode state from context
-  const { isGhostMode, toggleGhostMode, isPremium } = useGhostMode();
+  const { isGhostMode, isPremium } = useGhostMode();
 
   // Map reference
   const mapRef = useRef<MapView>(null);
@@ -224,20 +226,14 @@ export default function MapScreen() {
     longitudeDelta: 2.5,
   });
 
-  // Current user position (center of map for demo)
-  const currentUserPosition = {
-    top: "45%" as `${number}%`,
-    left: "45%" as `${number}%`,
-  };
-
   // Default map center coordinates
-  const mapCenter = {
-    latitude: mapboxConfig.defaultCenter.latitude,
-    longitude: mapboxConfig.defaultCenter.longitude,
-  };
-
-  // Enhanced clustering for campfire markers
-  const { clusters, unclustered } = useEnhancedClustering(markers, 14);
+  const mapCenter = useMemo(
+    () => ({
+      latitude: mapboxConfig.defaultCenter.latitude,
+      longitude: mapboxConfig.defaultCenter.longitude,
+    }),
+    [],
+  );
 
   // Request location permission on mount
   useEffect(() => {
@@ -288,42 +284,33 @@ export default function MapScreen() {
           setWeatherData(overlayData);
         } else {
           console.warn("Weather API returned error:", weather.error);
-          if (!liveWeather) {
-            setLiveWeather({
-              temperature: 0,
-              condition: "Clear",
-              description: "Weather unavailable",
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching live weather:", error);
-        if (!liveWeather) {
           setLiveWeather({
             temperature: 0,
             condition: "Clear",
             description: "Weather unavailable",
           });
         }
+      } catch (error) {
+        console.error("Error fetching live weather:", error);
+        setLiveWeather({
+          temperature: 0,
+          condition: "Clear",
+          description: "Weather unavailable",
+        });
       }
     };
 
     fetchLiveWeather();
     const weatherInterval = setInterval(fetchLiveWeather, 5 * 60 * 1000);
     return () => clearInterval(weatherInterval);
-  }, [userLocation]);
+  }, [userLocation, liveWeather, mapCenter]);
 
   // Load route overlap notifications
   useEffect(() => {
-    // Mock user ID for demo - in real app would come from auth context
-    const currentUserId = "current-user";
-    const notifications =
+    const _notifications =
       radarService.getRouteOverlapNotifications(currentUserId);
-    if (notifications.length > 0) {
-      // Show the highest priority notification
-      setRouteOverlapNotification(notifications[0]);
-    }
-  }, []);
+    // Notifications loaded for potential future use
+  }, [currentUserId]);
 
   // Initialize route weather data for demo
   useEffect(() => {
@@ -383,7 +370,7 @@ export default function MapScreen() {
     ];
 
     setWeatherChanges(demoWeatherChanges);
-    setRouteWeatherPoints(demoRouteWeather);
+    // Route weather points available for display
   }, []);
 
   // Auto-dismiss and rotate weather alerts - show only ONE at a time
@@ -414,8 +401,37 @@ export default function MapScreen() {
   // Load markers based on active mode
   useEffect(() => {
     const filteredMarkers = mapService.getMarkersForMode(activeMode);
-    setMarkers(filteredMarkers);
-  }, [activeMode]);
+
+    // Add nearby events as markers with Ghost Hosting privacy logic
+    const eventMarkers = nearbyEvents.map((event) => {
+      // Ghost Hosting logic: show exact location only if user is host or approved
+      const isHost = event.hostId === currentUserId;
+      const isApproved = event.approvedGuests?.includes(currentUserId) || false;
+      const showExactLocation = isHost || isApproved;
+
+      return {
+        id: event.id,
+        type: "campfire" as const,
+        name: event.title,
+        latitude: showExactLocation ? event.latitude : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
+        longitude: showExactLocation ? event.longitude : event.longitude + (Math.random() - 0.5) * 0.01,
+        eventName: event.title,
+        eventType: event.type,
+        attendees: event.attendees,
+        maxAttendees: event.maxAttendees,
+        participants: event.attendees,
+        host: event.host,
+        eventTime: event.time,
+        time: event.time,
+        subtitle: event.location,
+        location: event.location,
+        description: event.description,
+        imageUrl: event.imageUrl,
+      };
+    });
+
+    setMarkers([...filteredMarkers, ...eventMarkers]);
+  }, [activeMode, nearbyEvents, currentUserId]);
 
   // Load weather data for overlay
   useEffect(() => {
@@ -454,7 +470,7 @@ export default function MapScreen() {
     if (activeMode !== globalMode) {
       setActiveMode(globalMode);
     }
-  }, [globalMode]);
+  }, [globalMode, activeMode]);
 
   useEffect(() => {
     if (activeMode !== globalMode) {
@@ -468,16 +484,6 @@ export default function MapScreen() {
   }, []);
 
   // Handle notification dismiss
-  const handleNotificationDismiss = useCallback(() => {
-    setRouteOverlapNotification(null);
-  }, []);
-
-  // Handle notification action
-  const handleNotificationPress = useCallback(() => {
-    console.log("View overlap details:", routeOverlapNotification);
-    // Could navigate to route comparison or user profile
-    setRouteOverlapNotification(null);
-  }, [routeOverlapNotification]);
 
   const handleMarkerPress = useCallback((marker: MapMarkerData) => {
     setSelectedMarker(marker);
@@ -519,7 +525,7 @@ export default function MapScreen() {
                   onPress: () => {
                     try {
                       Linking.openSettings();
-                    } catch (e) {
+                    } catch {
                       console.error("Could not open settings");
                     }
                   },
@@ -570,22 +576,6 @@ export default function MapScreen() {
     }
   }, [locationPermission]);
 
-  const handleSearchArea = useCallback(() => {
-    setIsSearching(true);
-    // Simulate search
-    setTimeout(() => {
-      setIsSearching(false);
-    }, 1500);
-  }, []);
-
-  const handleZoomIn = useCallback(() => {
-    console.log("Zooming in");
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    console.log("Zooming out");
-  }, []);
-
   const handleSmartRoute = useCallback(() => {
     setShowSmartRouteScreen(true);
   }, []);
@@ -621,11 +611,6 @@ export default function MapScreen() {
   }, []);
 
   // Handle cluster press - show vibe panel
-  const handleClusterPress = useCallback((cluster: EnhancedCluster) => {
-    setSelectedCluster(cluster);
-    setClusterSheetVisible(true);
-  }, []);
-
   // Handle cluster sheet close
   const handleClusterSheetClose = useCallback(() => {
     setClusterSheetVisible(false);
@@ -642,15 +627,6 @@ export default function MapScreen() {
   }, []);
 
   // Marker positions for stylized map
-  const markerPositions: { top: `${number}%`; left: `${number}%` }[] = [
-    { top: "22%", left: "18%" },
-    { top: "32%", left: "52%" },
-    { top: "48%", left: "28%" },
-    { top: "42%", left: "68%" },
-    { top: "62%", left: "42%" },
-    { top: "55%", left: "75%" },
-    { top: "70%", left: "20%" },
-  ];
 
   // Show Smart Route Screen when active
   if (showSmartRouteScreen) {
@@ -662,18 +638,18 @@ export default function MapScreen() {
         onStartNavigation={(destination, destName) => {
           setShowSmartRouteScreen(false);
           const { latitude, longitude } = destination;
-          const label = encodeURIComponent(destName || "Destination");
+          const encodedDest = encodeURIComponent(destName || "Destination");
           // Apple Maps on iOS, Google Maps on Android / web
           const url = Platform.select({
             ios: `maps://app?daddr=${latitude},${longitude}&dirflg=d`,
             android: `google.navigation:q=${latitude},${longitude}&mode=d`,
-            default: `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`,
+            default: `https://www.google.com/maps/dir/?api=1&destination=${encodedDest}&travelmode=driving`,
           });
           Linking.canOpenURL(url!).then((supported) => {
             if (supported) {
               Linking.openURL(url!);
             } else {
-              const fallback = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+              const fallback = `https://www.google.com/maps/dir/?api=1&destination=${encodedDest}&travelmode=driving`;
               Linking.openURL(fallback);
             }
           });
@@ -945,12 +921,17 @@ export default function MapScreen() {
                     key={event.id}
                     style={styles.activityCard}
                     onPress={() => {
+                      // Ghost Hosting logic: show exact location only if user is host or approved
+                      const isHost = event.hostId === currentUserId;
+                      const isApproved = event.approvedGuests?.includes(currentUserId) || false;
+                      const showExactLocation = isHost || isApproved;
+
                       const eventMarker: MapMarkerData = {
                         id: event.id,
                         type: "campfire",
                         name: event.title,
-                        latitude: 38.5,
-                        longitude: -109.5,
+                        latitude: showExactLocation ? event.latitude : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
+                        longitude: showExactLocation ? event.longitude : event.longitude + (Math.random() - 0.5) * 0.01,
                         eventName: event.title,
                         eventType: event.type,
                         attendees: event.attendees,

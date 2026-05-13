@@ -12,18 +12,15 @@ import {
 import { useRouter } from "@/hooks/useRouterCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  colors,
-  typography,
-  spacing,
-  borderRadius,
-  shadows,
-} from "@/constants/theme";
+import { colors, typography, spacing, borderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { NatureBackground } from "@/components/ui/NatureBackground";
 import { Logo } from "@/components/ui/Logo";
 import { useAuth } from "@/contexts/AuthContext";
+
+const REVIEWER_ACCOUNT_EMAIL = "apple-review@wildergo.com";
+const REVIEWER_ACCOUNT_PASSWORD = "WilderGoReview2026!";
 
 export default function CreateAccountScreen() {
   const router = useRouter();
@@ -264,7 +261,19 @@ export default function CreateAccountScreen() {
                 to keep our community safe.
               </Text>
             </View>
-          ) : null}
+          ) : (
+            <View style={styles.reviewerInfo}>
+              <Text style={styles.reviewerHeading}>Reviewer access</Text>
+              <Text style={styles.reviewerText}>
+                Use the dedicated Apple reviewer account to sign in during review.
+              </Text>
+              <Text style={styles.reviewerCredentials} testID="reviewer-credentials">
+                {REVIEWER_ACCOUNT_EMAIL}
+                {"\n"}
+                {REVIEWER_ACCOUNT_PASSWORD}
+              </Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.switchButton}

@@ -1,13 +1,15 @@
 // server/index.ts
 import "dotenv/config";
 import express from "express";
-
-// server/routes/index.ts
 import { createServer } from "node:http";
-import pg2 from "pg";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+// server/routes/authRoutes.ts
+import { Router } from "express";
 
 // server/services/firebase.ts
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import * as fs from "fs";
 import * as path from "path";
 var firebaseApp = null;
@@ -571,403 +573,71 @@ var auth_default = {
   getUserProfile
 };
 
-// server/services/messages.ts
-import { promises as fs2 } from "fs";
-import path2 from "path";
-import { randomUUID } from "crypto";
-var STORE_DIR = path2.resolve(__dirname, "..", "data");
-var STORE_FILE = path2.join(STORE_DIR, "messages.json");
-async function ensureStoreFile() {
+// server/routes/authRoutes.ts
+var authRoutes = Router();
+async function handleEmailPasswordSignIn(req, res) {
+  const route = req.path;
+  console.log(`[ROUTE ${route}] === Request received ===`);
+  console.log(
+    `[ROUTE ${route}] Body:`,
+    JSON.stringify({ email: req.body?.email, password: "***" })
+  );
   try {
-    await fs2.mkdir(STORE_DIR, { recursive: true });
-    await fs2.access(STORE_FILE);
-  } catch {
-    await fs2.writeFile(STORE_FILE, JSON.stringify([]), "utf-8");
+    const { email, password } = req.body;
+    if (!email || !password) {
+      console.log(`[ROUTE ${route}] REJECTED: Missing email or password`);
+      return res.status(400).json({ success: false, message: "Email and password are required" });
+    }
+    const result = await auth_default.signIn(email, password);
+    console.log(`[ROUTE ${route}] Result:`, JSON.stringify(result));
+    return res.json(result);
+  } catch (error) {
+    console.error(`[ROUTE ${route}] UNCAUGHT ERROR:`, error?.message, error?.stack);
+    return res.status(500).json({ success: false, message: "Server error: " + error.message });
   }
 }
-async function loadMessages() {
-  await ensureStoreFile();
-  const content = await fs2.readFile(STORE_FILE, "utf-8");
+authRoutes.post("/login", handleEmailPasswordSignIn);
+authRoutes.post("/signin", handleEmailPasswordSignIn);
+authRoutes.post("/signup", async (req, res) => {
+  console.log(`[ROUTE /api/auth/signup] === Request received ===`);
+  console.log(
+    `[ROUTE /api/auth/signup] Body:`,
+    JSON.stringify({ email: req.body?.email, password: "***" })
+  );
   try {
-    return JSON.parse(content);
-  } catch {
-    return [];
+    const { email, password } = req.body;
+    if (!email || !password) {
+      console.log(`[ROUTE /api/auth/signup] REJECTED: Missing email or password`);
+      return res.status(400).json({ success: false, message: "Email and password are required" });
+    }
+    const result = await auth_default.signUp(email, password);
+    console.log(`[ROUTE /api/auth/signup] Result:`, JSON.stringify(result));
+    return res.json(result);
+  } catch (error) {
+    console.error(
+      `[ROUTE /api/auth/signup] UNCAUGHT ERROR:`,
+      error?.message,
+      error?.stack
+    );
+    return res.status(500).json({ success: false, message: "Server error: " + error.message });
   }
-}
-async function saveMessages(messages) {
-  await ensureStoreFile();
-  await fs2.writeFile(STORE_FILE, JSON.stringify(messages, null, 2), "utf-8");
-}
-function createConversationId(userA, userB) {
-  return [userA, userB].sort().join("__");
-}
-async function sendMessage(message) {
-  const conversationId = createConversationId(
-    message.senderUid,
-    message.receiverUid
-  );
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const newMessage = {
-    id: randomUUID(),
-    ...message,
-    conversationId,
-    isRead: false,
-    createdAt: now
-  };
-  const messages = await loadMessages();
-  messages.unshift(newMessage);
-  await saveMessages(messages);
-  return newMessage;
-}
-async function getConversationThread(userUid, otherUid) {
-  const conversationId = createConversationId(userUid, otherUid);
-  const messages = await loadMessages();
-  return messages.filter((message) => message.conversationId === conversationId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-async function listConversationsForUser(userUid) {
-  const messages = await loadMessages();
-  const summaries = /* @__PURE__ */ new Map();
-  messages.forEach((message) => {
-    if (message.senderUid !== userUid && message.receiverUid !== userUid) {
-      return;
-    }
-    const conversationId = message.conversationId;
-    const otherUid = message.senderUid === userUid ? message.receiverUid : message.senderUid;
-    const name = message.senderUid === userUid ? message.receiverName || otherUid : message.senderName || otherUid;
-    const avatar = message.senderUid === userUid ? message.receiverAvatar : message.senderAvatar;
-    const lastMessage = message.content || "";
-    const lastTimestamp = message.createdAt;
-    const isUnread = !message.isRead && message.receiverUid === userUid;
-    const existing = summaries.get(conversationId);
-    if (!existing) {
-      summaries.set(conversationId, {
-        conversationId,
-        otherUid,
-        name,
-        avatar,
-        lastMessage,
-        lastTimestamp,
-        unreadCount: isUnread ? 1 : 0
-      });
-      return;
-    }
-    if (lastTimestamp > existing.lastTimestamp) {
-      existing.lastMessage = lastMessage;
-      existing.lastTimestamp = lastTimestamp;
-      existing.name = name;
-      existing.avatar = avatar;
-    }
-    if (isUnread) {
-      existing.unreadCount += 1;
-    }
-  });
-  return Array.from(summaries.values()).sort(
-    (a, b) => b.lastTimestamp.localeCompare(a.lastTimestamp)
-  );
-}
-var messages_default = {
-  sendMessage,
-  getConversationThread,
-  listConversationsForUser
-};
-
-// server/routes/index.ts
-var badgePool = new pg2.Pool({ connectionString: process.env.DATABASE_URL });
-async function registerRoutes(app2) {
-  app2.post("/api/auth/signup", async (req, res) => {
-    console.log(`[ROUTE /api/auth/signup] === Request received ===`);
-    console.log(`[ROUTE /api/auth/signup] Body:`, JSON.stringify(req.body));
-    try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        console.log(
-          `[ROUTE /api/auth/signup] REJECTED: Missing email or password`
-        );
-        return res.status(400).json({ success: false, message: "Email and password are required" });
-      }
-      console.log(
-        `[ROUTE /api/auth/signup] Calling authService.signUp(${email}, ***)`
-      );
-      const result = await auth_default.signUp(email, password);
-      console.log(`[ROUTE /api/auth/signup] Result:`, JSON.stringify(result));
-      return res.json(result);
-    } catch (error) {
-      console.error(
-        `[ROUTE /api/auth/signup] UNCAUGHT ERROR:`,
-        error.message,
-        error.stack
-      );
-      return res.status(500).json({ success: false, message: "Server error: " + error.message });
-    }
-  });
-  app2.post("/api/auth/signin", async (req, res) => {
-    console.log(`[ROUTE /api/auth/signin] === Request received ===`);
-    console.log(
-      `[ROUTE /api/auth/signin] Body:`,
-      JSON.stringify({ email: req.body?.email, password: "***" })
-    );
-    try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        console.log(
-          `[ROUTE /api/auth/signin] REJECTED: Missing email or password`
-        );
-        return res.status(400).json({ success: false, message: "Email and password are required" });
-      }
-      console.log(
-        `[ROUTE /api/auth/signin] Calling authService.signIn(${email}, ***)`
-      );
-      const result = await auth_default.signIn(email, password);
-      console.log(`[ROUTE /api/auth/signin] Result:`, JSON.stringify(result));
-      return res.json(result);
-    } catch (error) {
-      console.error(
-        `[ROUTE /api/auth/signin] UNCAUGHT ERROR:`,
-        error.message,
-        error.stack
-      );
-      return res.status(500).json({ success: false, message: "Server error: " + error.message });
-    }
-  });
-  app2.post("/api/auth/send-verification", async (req, res) => {
-    console.log(
-      `[ROUTE /api/auth/send-verification] Request for uid: ${req.body?.uid}`
-    );
-    try {
-      const { uid } = req.body;
-      if (!uid) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
-      }
-      const result = await auth_default.sendVerificationEmail(uid);
-      console.log(
-        `[ROUTE /api/auth/send-verification] Result:`,
-        JSON.stringify(result)
-      );
-      return res.json(result);
-    } catch (error) {
-      console.error("Send verification error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/auth/verify-email", async (req, res) => {
-    try {
-      const { uid, token } = req.body;
-      if (!uid || !token) {
-        return res.status(400).json({ success: false, message: "User ID and token are required" });
-      }
-      const result = await auth_default.verifyEmail(uid, token);
-      return res.json(result);
-    } catch (error) {
-      console.error("Verify email error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.get("/api/auth/check-verification/:uid", async (req, res) => {
-    try {
-      const { uid } = req.params;
-      const result = await auth_default.checkEmailVerification(uid);
-      return res.json(result);
-    } catch (error) {
-      console.error("Check verification error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/auth/submit-selfie", async (req, res) => {
-    try {
-      const { uid, selfieData } = req.body;
-      if (!uid) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
-      }
-      const result = await auth_default.submitSelfie(
-        uid,
-        selfieData || "selfie_submitted"
-      );
-      return res.json(result);
-    } catch (error) {
-      console.error("Submit selfie error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.get("/api/auth/user-status/:uid", async (req, res) => {
-    try {
-      const { uid } = req.params;
-      const result = await auth_default.getUserStatus(uid);
-      return res.json(result);
-    } catch (error) {
-      console.error("User status error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/auth/update-profile", async (req, res) => {
-    console.log(
-      `[ROUTE /api/auth/update-profile] Request:`,
-      JSON.stringify(req.body)
-    );
-    try {
-      const { uid, ...profile } = req.body;
-      if (!uid) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
-      }
-      const result = await auth_default.createOrUpdateUserProfile(uid, profile);
-      console.log(
-        `[ROUTE /api/auth/update-profile] Result:`,
-        JSON.stringify(result)
-      );
-      return res.json(result);
-    } catch (error) {
-      console.error("Update profile error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.get("/api/auth/profile/:uid", async (req, res) => {
-    try {
-      const { uid } = req.params;
-      const profile = await auth_default.getUserProfile(uid);
-      if (!profile) {
-        return res.status(404).json({ success: false, message: "Profile not found" });
-      }
-      return res.json({ success: true, profile });
-    } catch (error) {
-      console.error("Get profile error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/auth/generate-invite", async (req, res) => {
-    try {
-      const { uid } = req.body;
-      if (!uid) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
-      }
-      const result = await auth_default.generateInviteCode(uid);
-      return res.json(result);
-    } catch (error) {
-      console.error("Generate invite error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/auth/validate-invite", async (req, res) => {
-    try {
-      const { code } = req.body;
-      if (!code) {
-        return res.status(400).json({ valid: false, message: "Invite code is required" });
-      }
-      const result = await auth_default.validateInviteCode(code);
-      return res.json(result);
-    } catch (error) {
-      console.error("Validate invite error:", error);
-      return res.status(500).json({ valid: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/auth/use-invite", async (req, res) => {
-    try {
-      const { code, uid } = req.body;
-      if (!code || !uid) {
-        return res.status(400).json({ success: false, message: "Code and user ID are required" });
-      }
-      const result = await auth_default.useInviteCode(code, uid);
-      return res.json(result);
-    } catch (error) {
-      console.error("Use invite error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.get("/api/badges/:firebaseUid", async (req, res) => {
-    try {
-      const { firebaseUid } = req.params;
-      if (!firebaseUid) {
-        return res.status(400).json({ success: false, message: "Firebase UID required" });
-      }
-      const badgesResult = await badgePool.query(
-        "SELECT badge_id FROM user_badges WHERE firebase_uid = $1",
-        [firebaseUid]
-      );
-      const earnedBadgeIds = badgesResult.rows.map((r) => r.badge_id);
-      const countResult = await badgePool.query("SELECT COUNT(*) FROM users");
-      const totalUsers = parseInt(countResult.rows[0].count, 10);
-      const genesisAvailable = totalUsers <= 100;
-      return res.json({
-        success: true,
-        earnedBadgeIds,
-        genesisAvailable,
-        totalUsers
-      });
-    } catch (error) {
-      console.error("Badge fetch error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.post("/api/messages/send", async (req, res) => {
-    try {
-      const {
-        senderUid,
-        receiverUid,
-        content,
-        messageType,
-        senderName,
-        receiverName,
-        senderAvatar,
-        receiverAvatar
-      } = req.body;
-      if (!senderUid || !receiverUid || !content) {
-        return res.status(400).json({
-          success: false,
-          message: "senderUid, receiverUid, and content are required"
-        });
-      }
-      const message = await messages_default.sendMessage({
-        senderUid,
-        receiverUid,
-        content,
-        messageType,
-        senderName,
-        receiverName,
-        senderAvatar,
-        receiverAvatar
-      });
-      return res.json({ success: true, message });
-    } catch (error) {
-      console.error("Send message error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.get("/api/messages/conversations/:uid", async (req, res) => {
-    try {
-      const { uid } = req.params;
-      if (!uid) {
-        return res.status(400).json({ success: false, message: "User UID is required" });
-      }
-      const conversations = await messages_default.listConversationsForUser(uid);
-      return res.json({ success: true, conversations });
-    } catch (error) {
-      console.error("List conversations error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  app2.get("/api/messages/thread/:userUid/:otherUid", async (req, res) => {
-    try {
-      const { userUid, otherUid } = req.params;
-      if (!userUid || !otherUid) {
-        return res.status(400).json({ success: false, message: "Both user UIDs are required" });
-      }
-      const messages = await messages_default.getConversationThread(
-        userUid,
-        otherUid
-      );
-      return res.json({ success: true, messages });
-    } catch (error) {
-      console.error("Get thread error:", error);
-      return res.status(500).json({ success: false, message: "Server error" });
-    }
-  });
-  const httpServer = createServer(app2);
-  return httpServer;
-}
+});
+var authRoutes_default = authRoutes;
 
 // server/index.ts
-import * as fs3 from "fs";
-import * as path3 from "path";
+import * as fs2 from "fs";
+import * as path2 from "path";
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = dirname(__filename);
 var app = express();
 var log = console.log;
+app.get(
+  "/test-deploy",
+  (_req, res) => res.send("DEPLOYED_APRIL_26_V1")
+);
+app.get("/health", (_req, res) => {
+  res.send("Server Version 2.0 - LIVE");
+});
 function setupCors(app2) {
   app2.use((req, res, next) => {
     const origins = /* @__PURE__ */ new Set();
@@ -1009,7 +679,7 @@ function setupBodyParsing(app2) {
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
     const start = Date.now();
-    const path4 = req.path;
+    const path3 = req.path;
     let capturedJsonResponse = void 0;
     const originalResJson = res.json;
     res.json = function(bodyJson, ...args) {
@@ -1017,9 +687,9 @@ function setupRequestLogging(app2) {
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
     res.on("finish", () => {
-      if (!path4.startsWith("/api")) return;
+      if (!path3.startsWith("/api")) return;
       const duration = Date.now() - start;
-      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -1033,8 +703,8 @@ function setupRequestLogging(app2) {
 }
 function getAppName() {
   try {
-    const appJsonPath = path3.resolve(process.cwd(), "app.json");
-    const appJsonContent = fs3.readFileSync(appJsonPath, "utf-8");
+    const appJsonPath = path2.resolve(process.cwd(), "app.json");
+    const appJsonContent = fs2.readFileSync(appJsonPath, "utf-8");
     const appJson = JSON.parse(appJsonContent);
     return appJson.expo?.name || "App Landing Page";
   } catch {
@@ -1042,19 +712,19 @@ function getAppName() {
   }
 }
 function serveExpoManifest(platform, res) {
-  const manifestPath = path3.resolve(
+  const manifestPath = path2.resolve(
     process.cwd(),
     "static-build",
     platform,
     "manifest.json"
   );
-  if (!fs3.existsSync(manifestPath)) {
+  if (!fs2.existsSync(manifestPath)) {
     return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
   res.setHeader("content-type", "application/json");
-  const manifest = fs3.readFileSync(manifestPath, "utf-8");
+  const manifest = fs2.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
 function serveLandingPage({
@@ -1076,13 +746,12 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 function configureExpoAndLanding(app2) {
-  const templatePath = path3.resolve(
+  const templatePath = path2.resolve(
     process.cwd(),
-    "server",
     "templates",
     "landing-page.html"
   );
-  const landingPageTemplate = fs3.readFileSync(templatePath, "utf-8");
+  const landingPageTemplate = fs2.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
   log("Serving static Expo files with dynamic manifest routing");
   app2.use((req, res, next) => {
@@ -1106,8 +775,13 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/assets", express.static(path3.resolve(process.cwd(), "assets")));
-  app2.use(express.static(path3.resolve(process.cwd(), "static-build")));
+  app2.use("/assets", express.static(path2.join(__dirname, "../assets")));
+  app2.use(express.static(path2.join(__dirname, "../static-build")));
+  app2.use(express.static(path2.join(__dirname, "../templates")));
+  app2.use(express.static(path2.join(__dirname, "./public")));
+  app2.use((_req, res) => {
+    res.sendFile(path2.join(__dirname, "../templates/landing-page.html"));
+  });
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 function setupErrorHandler(app2) {
@@ -1132,8 +806,25 @@ function setupErrorHandler(app2) {
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
+  app.get("/test", (_req, res) => {
+    res.send("Server is Live");
+  });
+  app.get("/status", (_req, res) => {
+    res.json({ status: "online", version: "1.0.1" });
+  });
+  app.use("/api/auth", authRoutes_default);
+  app.get("/", (_req, res) => {
+    res.sendFile(path2.join(__dirname, "../templates/landing-page.html"));
+  });
   configureExpoAndLanding(app);
-  const server = await registerRoutes(app);
+  app.use(express.static(path2.join(__dirname, "..", "templates")));
+  app.get("/", (_req, res) => {
+    res.sendFile(path2.join(__dirname, "..", "templates", "landing-page.html"));
+  });
+  app.use((_req, res) => {
+    res.sendFile(path2.join(__dirname, "..", "templates", "landing-page.html"));
+  });
+  const server = createServer(app);
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
   const host = process.env.HOST || (process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0");

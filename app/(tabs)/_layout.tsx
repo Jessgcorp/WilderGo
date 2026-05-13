@@ -1,12 +1,11 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import {
   StyleSheet,
   View,
   Text,
-  Platform,
   TouchableOpacity,
-  Pressable,
+  Modal,
   ActivityIndicator,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -19,15 +18,14 @@ import Reanimated, {
   withRepeat,
   withSequence,
   runOnJS,
-  cancelAnimation,
   useAnimatedProps,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 
-const SOS_CRIMSON = "#D90429";
-const SOS_HOLD_DURATION = 1500;
+const SOS_CRIMSON = "#D30429";  // High-contrast red
+const SOS_HOLD_DURATION = 500;  // 500ms for fast emergency response
 const CIRCUMFERENCE = 2 * Math.PI * 14;
 
 const ReanimatedCircle = Reanimated.createAnimatedComponent(Circle);
@@ -41,8 +39,8 @@ function SOSButton({ onActivate }: { onActivate: () => void }) {
   const startHeartbeat = useCallback(() => {
     if (hapticInterval.current) return;
     hapticInterval.current = setInterval(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }, 300);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }, 150);
   }, []);
 
   const stopHeartbeat = useCallback(() => {
@@ -93,13 +91,31 @@ function SOSButton({ onActivate }: { onActivate: () => void }) {
     transform: [{ scale: scale.value }],
   }));
 
-  return (
-    <Pressable
+      return (
+    <TouchableOpacity
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      onPress={triggerSOS}
+      activeOpacity={0.8}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      accessible={true}
+      accessibilityLabel="SOS Button"
+      accessibilityHint="Tap to open SOS modal. Hold for 500ms to trigger emergency alert."
       style={styles.sosContainer}
     >
+      <View style={styles.sosOnlineBadge} pointerEvents="none">
+        <Text style={styles.sosOnlineBadgeText}>Online</Text>
+      </View>
       <Reanimated.View style={[styles.sosBtn, animatedContainerStyle]}>
+        <View style={styles.sosBadge}>
+          <Ionicons
+            name="alert-circle"
+            size={12}
+            color="#FFF"
+            style={{ marginRight: 3 }}
+          />
+          <Text style={styles.sosBadgeText}>SOS</Text>
+        </View>
         <Svg width="44" height="44" style={styles.sosSvg}>
           <Circle
             cx="22"
@@ -122,9 +138,8 @@ function SOSButton({ onActivate }: { onActivate: () => void }) {
             transform="rotate(-90 22 22)"
           />
         </Svg>
-        <Text style={styles.sosText}>SOS</Text>
       </Reanimated.View>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -143,14 +158,14 @@ const TAB_ROUTES = [
   },
   {
     key: "messages",
-    title: "Gear",
-    icon: "construct-outline" as const,
+    title: "Chat",
+    icon: "chatbubble-outline" as const,
     path: "/(tabs)/messages",
   },
   {
     key: "profile",
-    title: "Profile",
-    icon: "person-outline" as const,
+    title: "Community",
+    icon: "people-outline" as const,
     path: "/(tabs)/profile",
   },
 ];
@@ -158,6 +173,7 @@ const TAB_ROUTES = [
 function WilderPill() {
   const pathname = usePathname();
   const router = useRouter();
+  const [showSOSModal, setShowSOSModal] = useState(false);
 
   const activeKey =
     TAB_ROUTES.find((t) => pathname.includes(t.key))?.key || "discovery";
@@ -171,20 +187,15 @@ function WilderPill() {
   );
 
   const handleSOS = useCallback(() => {
-    router.push("/(tabs)/help" as any);
-  }, [router]);
+    setShowSOSModal(true);
+  }, []);
 
   return (
     <View style={styles.pillAnchor}>
       <View style={styles.pillOuter}>
         {/* Apple-style glass effect with blur and saturation */}
-        <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         <View style={styles.pillInner}>
-          {/* Build 17 Indicator - "17" Badge */}
-          <View style={styles.glassIndicator}>
-            <Text style={styles.indicatorText}>17</Text>
-          </View>
-
           <View style={styles.tabsContainer}>
             {TAB_ROUTES.map((tab) => {
               const isFocused = activeKey === tab.key;
@@ -192,6 +203,11 @@ function WilderPill() {
                 <TouchableOpacity
                   key={tab.key}
                   onPress={() => handleTabPress(tab.path)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessible={true}
+                  accessibilityLabel={`${tab.title} tab`}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isFocused }}
                   style={styles.tabItem}
                   activeOpacity={0.7}
                 >
@@ -201,7 +217,13 @@ function WilderPill() {
                     color={isFocused ? "#1d1d1f" : "rgba(29, 29, 31, 0.45)"}
                   />
                   {isFocused && (
-                    <Text style={styles.tabLabel}>{tab.title}</Text>
+                    <Text
+                      style={styles.tabLabel}
+                      allowFontScaling={true}
+                      maxFontSizeMultiplier={1.3}
+                    >
+                      {tab.title}
+                    </Text>
                   )}
                 </TouchableOpacity>
               );
@@ -210,13 +232,77 @@ function WilderPill() {
 
           <View style={styles.divider} />
 
-          {/* Nearby Status Circle & SOS */}
-          <View style={styles.statusGroup}>
-            <View style={styles.nearbyCircle} />
-            <SOSButton onActivate={handleSOS} />
+          {/* Nearby status and SOS button */}
+          <View style={styles.sosColumn}>
+            <View style={styles.statusGroup}>
+              <View style={styles.nearbyCircle} />
+              <SOSButton onActivate={handleSOS} />
+            </View>
           </View>
         </View>
       </View>
+
+      <Modal transparent visible={showSOSModal} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.sosModalCard}>
+            <Text
+              style={styles.sosModalTitle}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={1.3}
+            >
+              SOS Status
+            </Text>
+            <View style={styles.sosModalStatusRow}>
+              <View style={styles.sosModalDot} />
+              <Ionicons
+                name="radio-outline"
+                size={14}
+                color="#34C759"
+                style={{ marginHorizontal: 4 }}
+              />
+              <Text
+                style={styles.sosModalStatusText}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.2}
+              >
+                Community Mode: Active
+              </Text>
+            </View>
+            <Text
+              style={styles.sosModalDetail}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={1.1}
+            >
+              Satellite Mode: Unlocks at 5k local users.
+            </Text>
+            <Text
+              style={styles.sosModalDetailSecondary}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={1.0}
+            >
+              Hold the SOS button for 500ms to trigger an emergency alert.
+            </Text>
+            <TouchableOpacity
+              style={styles.sosModalButton}
+              onPress={() => setShowSOSModal(false)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessible={true}
+              accessibilityLabel="Close SOS Status"
+              accessibilityRole="button"
+              activeOpacity={0.8}
+            >
+              <Text
+                style={styles.sosModalButtonText}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.2}
+              >
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -238,13 +324,14 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: { display: "none" },
+          tabBarShowLabel: true,
         }}
       >
-        <Tabs.Screen name="discovery" />
-        <Tabs.Screen name="map" />
-        <Tabs.Screen name="messages" />
-        <Tabs.Screen name="profile" />
-        <Tabs.Screen name="help" />
+        <Tabs.Screen name="discovery" options={{ title: "Explore" }} />
+        <Tabs.Screen name="map" options={{ title: "Map" }} />
+        <Tabs.Screen name="messages" options={{ title: "Chat" }} />
+        <Tabs.Screen name="profile" options={{ title: "Community" }} />
+        <Tabs.Screen name="help" options={{ title: "Help" }} />
       </Tabs>
       <WilderPill />
     </View>
@@ -271,7 +358,7 @@ const styles = StyleSheet.create({
   },
   pillOuter: {
     width: "92%",
-    height: 64,
+    minHeight: 92,
     borderRadius: 999,
     overflow: "hidden",
     borderWidth: 1,
@@ -288,28 +375,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   tabsContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+  sosColumn: {
+    alignItems: "center",
+    gap: 0,
+  },
   statusGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+  },
+  sosSubheaderCommunity: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#34C759",
+    textAlign: "center",
+    marginTop: 2,
+    letterSpacing: 0.15,
+    display: "none",
+  },
+  sosSubheaderSatellite: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: "#1d1d1f",
+    textAlign: "center",
+    lineHeight: 13,
+    letterSpacing: 0.1,
+    flexWrap: "wrap",
+    display: "none",
   },
   nearbyCircle: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: "#34C759", // Apple green
-  },
-  indicatorText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1d1d1f",
   },
   tabItem: {
     flexDirection: "row",
@@ -324,27 +430,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1d1d1f",
   },
-  glassIndicator: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   divider: {
     width: 1,
     height: 24,
     backgroundColor: "rgba(255, 255, 255, 0.3)",
   },
   sosContainer: {
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
     justifyContent: "center",
     alignItems: "center",
+  },
+  sosOnlineBadge: {
+    position: "absolute",
+    top: -2,
+    right: -4,
+    zIndex: 2,
+    backgroundColor: "#34C759",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.55)",
+  },
+  sosOnlineBadgeText: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.15,
   },
   sosBtn: {
     width: 36,
@@ -363,5 +476,111 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: "#1d1d1f",
+  },
+  sosBadge: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "#D30429",
+    bottom: 2,
+    left: -2,
+    right: -2,
+    zIndex: 10,
+    shadowColor: "#D30429",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  sosBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    paddingHorizontal: 18,
+  },
+  sosModalCard: {
+    width: "100%",
+    maxWidth: 336,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.94)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)",
+    overflow: "hidden",
+    padding: 22,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.14,
+    shadowRadius: 32,
+    elevation: 16,
+  },
+  sosModalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#1d1d1f",
+    textAlign: "center",
+    marginBottom: 14,
+    letterSpacing: -0.5,
+  },
+  sosModalStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+    flexWrap: "wrap",
+  },
+  sosModalDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#34C759",
+    borderWidth: 1,
+    borderColor: "rgba(52, 199, 89, 0.3)",
+  },
+  sosModalStatusText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1d1d1f",
+    marginLeft: 8,
+  },
+  sosModalDetail: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#3A3028",
+    textAlign: "center",
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  sosModalDetailSecondary: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#5A5048",
+    textAlign: "center",
+    marginBottom: 20,
+    flexWrap: "wrap",
+    fontStyle: "italic",
+  },
+  sosModalButton: {
+    alignSelf: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 999,
+    backgroundColor: "#1d1d1f",
+  },
+  sosModalButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

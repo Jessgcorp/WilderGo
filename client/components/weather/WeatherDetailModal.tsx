@@ -5,17 +5,16 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  Pressable,
+  TouchableOpacity,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
 import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { colors, typography, spacing, borderRadius } from "@/constants/theme";
 import {
   getDetailedForecast,
-  getWeatherIconUrl,
+  getWeatherIconName,
   getWindDirection,
   DetailedForecastData,
   HourlyForecast,
@@ -62,10 +61,11 @@ export const WeatherDetailModal: React.FC<WeatherDetailModalProps> = ({
       <View style={styles.currentSection}>
         <Text style={styles.locationName}>{locationName}</Text>
         <View style={styles.currentMain}>
-          <Image
-            source={{ uri: getWeatherIconUrl(current.icon || "01d") }}
+          <Feather
+            name={getWeatherIconName(current.icon || "01d") as any}
+            size={80}
+            color={colors.text.inverse}
             style={styles.currentIcon}
-            contentFit="contain"
           />
           <Text style={styles.currentTemp}>{current.temperature}°</Text>
         </View>
@@ -112,10 +112,11 @@ export const WeatherDetailModal: React.FC<WeatherDetailModalProps> = ({
           {forecast.hourly.map((hour: HourlyForecast, index: number) => (
             <View key={index} style={styles.hourlyItem}>
               <Text style={styles.hourlyTime}>{hour.time}</Text>
-              <Image
-                source={{ uri: getWeatherIconUrl(hour.icon) }}
+              <Feather
+                name={getWeatherIconName(hour.icon) as any}
+                size={28}
+                color={colors.text.inverse}
                 style={styles.hourlyIcon}
-                contentFit="contain"
               />
               <Text style={styles.hourlyTemp}>{hour.temperature}°</Text>
               <View style={styles.hourlyPrecip}>
@@ -140,10 +141,11 @@ export const WeatherDetailModal: React.FC<WeatherDetailModalProps> = ({
         {forecast.daily.map((day: ForecastDay, index: number) => (
           <View key={index} style={styles.dailyItem}>
             <Text style={styles.dailyDate}>{day.date}</Text>
-            <Image
-              source={{ uri: getWeatherIconUrl(day.icon) }}
+            <Feather
+              name={getWeatherIconName(day.icon) as any}
+              size={28}
+              color={colors.text.inverse}
               style={styles.dailyIcon}
-              contentFit="contain"
             />
             <View style={styles.dailyCondition}>
               <Text style={styles.dailyConditionText} numberOfLines={1}>
@@ -182,11 +184,17 @@ export const WeatherDetailModal: React.FC<WeatherDetailModalProps> = ({
           <View style={styles.modalContent}>
             <View style={styles.header}>
               <View style={styles.handle} />
-              <Pressable onPress={onClose} style={styles.closeButton}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeButton}
+                activeOpacity={0.8}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Close weather modal"
+              >
                 <Feather name="x" size={24} color={colors.text.inverse} />
-              </Pressable>
+              </TouchableOpacity>
             </View>
-
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.moss[500]} />
@@ -262,7 +270,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: spacing.lg,
     top: spacing.md,
-    padding: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: borderRadius.full,
   },
   scrollView: {
     flex: 1,

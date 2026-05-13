@@ -804,6 +804,9 @@ const sectionStyles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontFamily: typography.fontFamily.bodySemiBold,
     color: colors.bark[800],
+    flexShrink: 1,
+    flexWrap: "wrap",
+    lineHeight: 22,
   },
   selectRow: {
     marginTop: spacing.md,
@@ -813,6 +816,9 @@ const sectionStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.bodyMedium,
     color: colors.bark[600],
     marginBottom: spacing.sm,
+    flexShrink: 1,
+    flexWrap: "wrap",
+    lineHeight: 20,
   },
   selectOptions: {
     flexDirection: "row",
@@ -859,6 +865,9 @@ const sectionStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.bodyMedium,
     color: colors.bark[600],
     marginBottom: spacing.xs,
+    flexShrink: 1,
+    flexWrap: "wrap",
+    lineHeight: 20,
   },
   numberInput: {
     flexDirection: "row",

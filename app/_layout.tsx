@@ -33,11 +33,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
-LogBox.ignoreLogs([
-  "Error configuring Purchases",
-  "Invalid API key",
-  "native store is not available",
-]);
+LogBox.ignoreAllLogs();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,25 +52,10 @@ function AuthenticatedLayout() {
     if (isLoading) return;
     if (!navigationState?.key) return;
 
-    const currentSegment = segments[0] as string | undefined;
-    const inOnboarding = currentSegment === "(onboarding)";
-    const inTabs = currentSegment === "(tabs)";
-    const isIndex = !currentSegment || currentSegment === "index";
-
-    if (!user) {
-      if (!inOnboarding) {
-        router.replace("/(onboarding)/welcome" as any);
-      }
-    } else if (user.onboardingComplete) {
-      if (!inTabs) {
-        router.replace("/(tabs)/discovery" as any);
-      }
-    } else {
-      if (!inOnboarding) {
-        router.replace("/(onboarding)/welcome" as any);
-      }
-    }
-  }, [user, isLoading, segments, navigationState?.key]);
+    // TEMPORARY AUTH BYPASS FOR MAP DEBUGGING
+    // Commented out the normal auth redirect flow and force the map tab directly.
+    router.replace("/(tabs)/map" as any);
+  }, [isLoading, navigationState?.key, router]);
 
   if (isLoading) {
     return (

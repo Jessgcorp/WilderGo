@@ -24,11 +24,9 @@ import { useRouter } from "@/hooks/useRouterCompat";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Haptics from "expo-haptics";
 import { getApiUrl } from "@/lib/query-client";
 import {
   colors,
@@ -39,9 +37,7 @@ import {
   profileImages,
 } from "@/constants/theme";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { NatureBackground } from "@/components/ui/NatureBackground";
 import { Button } from "@/components/ui/Button";
-import { Logo } from "@/components/ui/Logo";
 import { useMode } from "@/contexts/ModeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { RigSpecsEditor } from "@/components/passport/RigSpecsEditor";
@@ -70,6 +66,9 @@ const mockUser = {
     milesTracked: 15420,
   },
 };
+
+/** Demo % toward Satellite SOS unlock for priority regions (Colorado & Utah). */
+const COLORADO_UTAH_MESH_DENSITY_PCT = 12;
 
 // Mock rig specs
 const mockRigSpecs: RigSpecifications = {
@@ -114,7 +113,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isGhostMode, toggleGhostMode, isPremium, setPremium } = useMode();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout } = useAuth();
   const { logoutRevenueCat } = useRevenueCat();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [earnedBadgeIds, setEarnedBadgeIds] = useState<string[]>([
@@ -124,7 +123,6 @@ export default function ProfileScreen() {
     "5",
     "8",
   ]);
-  const [badgesLoaded, setBadgesLoaded] = useState(false);
   const [genesisAvailable, setGenesisAvailable] = useState(true);
 
   const [activeSection, setActiveSection] =
@@ -179,10 +177,9 @@ export default function ProfileScreen() {
               );
               setEarnedBadgeIds(merged);
               setGenesisAvailable(data.genesisAvailable);
-              setBadgesLoaded(true);
             }
           }
-        } catch (e) {}
+        } catch {}
       };
       fetchBadges();
     }
@@ -389,6 +386,34 @@ export default function ProfileScreen() {
             </Text>
             <Text style={styles.statLabel}>States</Text>
           </View>
+        </View>
+      </GlassCard>
+
+      <GlassCard variant="frost" padding="md" style={styles.networkDensityCard}>
+        <View style={styles.networkDensityHeader}>
+          <Ionicons name="people" size={20} color={colors.deepTeal[600]} />
+          <View style={styles.networkDensityTextCol}>
+            <Text style={styles.networkDensityEyebrow}>Community SOS</Text>
+            <Text style={styles.networkDensityTitle}>
+              Localized safety network — live at launch
+            </Text>
+            <Text style={styles.networkDensityMetric}>
+              Colorado & Utah mesh density: {COLORADO_UTAH_MESH_DENSITY_PCT}%
+            </Text>
+            <Text style={styles.networkDensityCaption}>
+              Satellite SOS unlocks at 100%. It layers in Apple satellite
+              connectivity (including geostationary coverage where supported) so
+              offline travelers still reach the same nearby responder mesh.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.networkDensityBarTrack}>
+          <View
+            style={[
+              styles.networkDensityBarFill,
+              { width: `${COLORADO_UTAH_MESH_DENSITY_PCT}%` },
+            ]}
+          />
         </View>
       </GlassCard>
 
@@ -703,7 +728,7 @@ export default function ProfileScreen() {
           ) : (
             <TouchableOpacity
               style={styles.logoIcon}
-              onPress={() => router.push("Map")}
+              onPress={() => router.push("/map")}
               activeOpacity={0.7}
             >
               <Ionicons name="compass" size={24} color={colors.ember[500]} />
@@ -1020,14 +1045,16 @@ export default function ProfileScreen() {
 
                   try {
                     logoutRevenueCat().catch(() => {});
-                  } catch (e) {}
+                  } catch {}
+
                   try {
                     await AsyncStorage.removeItem("@wildergo_auth");
-                  } catch (e) {}
+                  } catch {}
+
                   if (Platform.OS === "web" && typeof window !== "undefined") {
                     try {
                       window.localStorage.clear();
-                    } catch (e) {}
+                    } catch {}
                   }
 
                   await logout();
@@ -1918,6 +1945,57 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.body,
     color: "#4A5568",
     marginTop: 2,
+  },
+  networkDensityCard: {
+    marginTop: spacing.md,
+  },
+  networkDensityHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  networkDensityTextCol: {
+    flex: 1,
+  },
+  networkDensityEyebrow: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamily.bodySemiBold,
+    color: colors.deepTeal[600],
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  networkDensityTitle: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.bodySemiBold,
+    color: "#2A2A2A",
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  networkDensityMetric: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.bodyMedium,
+    color: colors.bark[700],
+    marginBottom: 6,
+  },
+  networkDensityCaption: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamily.body,
+    color: colors.bark[500],
+    lineHeight: 18,
+  },
+  networkDensityBarTrack: {
+    marginTop: spacing.sm,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.bark[100],
+    overflow: "hidden",
+  },
+  networkDensityBarFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: colors.deepTeal[500],
   },
   sectionHeader: {
     flexDirection: "row",

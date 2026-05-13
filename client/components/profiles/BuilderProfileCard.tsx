@@ -8,17 +8,17 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
-import { typography, spacing, borderRadius } from "@/constants/theme";
+import { colors, typography, spacing, borderRadius } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const CARD_BG = "#FFFFFF";
-const SECTION_BG = "#F5EFE6";
-const ACCENT_AMBER = "#F59E0B";
-const ACCENT_TEAL = "#4ECDC4";
-const ACCENT_MOSS = "#4ADE80";
-const TEXT_PRIMARY = "#2A2A2A";
-const TEXT_SECONDARY = "#4A5568";
+const CARD_BG = colors.card.background;
+const SECTION_BG = colors.background.primary;
+const ACCENT_AMBER = colors.status.warning;
+const ACCENT_TEAL = colors.deepTeal[500];
+const ACCENT_MOSS = colors.moss[500];
+const TEXT_PRIMARY = colors.text.primary;
+const TEXT_SECONDARY = colors.text.secondary;
 
 interface BuilderProfile {
   id: string;
@@ -269,6 +269,11 @@ export const BuilderCompactCard: React.FC<{
   <TouchableOpacity
     style={compactStyles.container}
     onPress={onPress}
+    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    accessible={true}
+    accessibilityLabel={`${profile.businessName}, rated ${profile.rating.toFixed(1)} stars`}
+    accessibilityHint={`Tap to view profile and services`}
+    accessibilityRole="button"
     activeOpacity={0.9}
   >
     <Image
@@ -282,13 +287,30 @@ export const BuilderCompactCard: React.FC<{
       </View>
     ) : null}
     <View style={compactStyles.info}>
-      <Text style={compactStyles.name} numberOfLines={1}>
+      <Text
+        style={compactStyles.name}
+        numberOfLines={2}
+        allowFontScaling={true}
+        maxFontSizeMultiplier={1.2}
+      >
         {profile.businessName}
       </Text>
       <View style={compactStyles.ratingRow}>
-        <Feather name="star" size={10} color={ACCENT_AMBER} />
-        <Text style={compactStyles.rating}>{profile.rating.toFixed(1)}</Text>
-        <Text style={compactStyles.reviews}>({profile.reviewCount})</Text>
+        <Feather name="star" size={11} color={ACCENT_AMBER} />
+        <Text
+          style={compactStyles.rating}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={1.15}
+        >
+          {profile.rating.toFixed(1)}
+        </Text>
+        <Text
+          style={compactStyles.reviews}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={1.15}
+        >
+          ({profile.reviewCount})
+        </Text>
       </View>
       <TouchableOpacity
         style={compactStyles.bookButton}
@@ -296,8 +318,18 @@ export const BuilderCompactCard: React.FC<{
           if (onBook) onBook();
           else if (onPress) onPress();
         }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessible={true}
+        accessibilityLabel={`Ask ${profile.businessName} for help`}
+        accessibilityRole="button"
       >
-        <Text style={compactStyles.bookButtonText}>Ask for Help</Text>
+        <Text
+          style={compactStyles.bookButtonText}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={1.15}
+        >
+          Ask for Help
+        </Text>
       </TouchableOpacity>
     </View>
   </TouchableOpacity>
@@ -384,15 +416,16 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   businessName: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: typography.fontFamily.heading,
     color: TEXT_PRIMARY,
+    fontWeight: "700",
   },
   verifiedTag: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(74,222,128,0.12)",
+    backgroundColor: colors.semantic.success + "1A",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -482,12 +515,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(245,158,11,0.1)",
+    backgroundColor: colors.status.warning + "1A",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(245,158,11,0.2)",
+    borderColor: colors.status.warning + "22",
   },
   expertiseText: {
     fontSize: 12,
@@ -538,12 +571,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(74,222,128,0.1)",
+    backgroundColor: colors.semantic.success + "1A",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(74,222,128,0.2)",
+    borderColor: colors.semantic.success + "22",
   },
   communityText: {
     fontSize: 11,
@@ -565,8 +598,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "rgba(245,158,11,0.3)",
-    backgroundColor: "rgba(245,158,11,0.08)",
+    borderColor: colors.status.warning + "30",
+    backgroundColor: colors.status.warning + "14",
   },
   portfolioButtonText: {
     fontSize: 13,
@@ -578,8 +611,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "rgba(78,205,196,0.3)",
-    backgroundColor: "rgba(78,205,196,0.08)",
+    borderColor: colors.deepTeal[200] + "40",
+    backgroundColor: colors.deepTeal[200] + "14",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -596,13 +629,13 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 13,
     fontFamily: typography.fontFamily.bodySemiBold,
-    color: "#FFF",
+    color: colors.text.inverse,
   },
 });
 
 const compactStyles = StyleSheet.create({
   container: {
-    width: 150,
+    width: "100%",
     backgroundColor: CARD_BG,
     borderRadius: 16,
     overflow: "hidden",
@@ -626,7 +659,7 @@ const compactStyles = StyleSheet.create({
     padding: 8,
   },
   name: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.fontFamily.bodySemiBold,
     color: TEXT_PRIMARY,
   },
@@ -642,7 +675,7 @@ const compactStyles = StyleSheet.create({
     color: TEXT_PRIMARY,
   },
   reviews: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: typography.fontFamily.body,
     color: TEXT_SECONDARY,
   },
@@ -654,7 +687,7 @@ const compactStyles = StyleSheet.create({
     alignItems: "center",
   },
   bookButtonText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: typography.fontFamily.bodySemiBold,
     color: "#FFF",
   },

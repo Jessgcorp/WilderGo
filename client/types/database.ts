@@ -396,6 +396,11 @@ export interface CampfireEvent {
   // Status
   is_cancelled: boolean;
   is_public: boolean;
+
+  // Ghost Hosting privacy feature
+  is_location_private: boolean;
+  requested_guests: string[];
+  approved_guests: string[];
 }
 
 export interface CampfireRSVP {

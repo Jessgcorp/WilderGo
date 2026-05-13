@@ -135,7 +135,7 @@ function PremiumSuccessModal({
               "Unlimited Convoys",
               "Builder Network",
               "Ghost Mode",
-              "Priority SOS",
+              "Priority Community SOS",
             ].map((feat) => (
               <View key={feat} style={successStyles.featureRow}>
                 <Ionicons

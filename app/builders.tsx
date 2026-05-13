@@ -16,14 +16,7 @@ import {
   BuilderProfileCard,
   BuilderCompactCard,
 } from "@/components/profiles/BuilderProfileCard";
-import {
-  colors,
-  typography,
-  spacing,
-  borderRadius,
-  shadows,
-} from "@/constants/theme";
-import { Logo } from "@/components/ui/Logo";
+import { colors, typography, spacing, shadows } from "@/constants/theme";
 
 export default function BuildersScreen() {
   const router = useRouter();

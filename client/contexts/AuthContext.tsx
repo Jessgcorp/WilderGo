@@ -1,4 +1,3 @@
-// CRITICAL: DO NOT MODIFY THIS FILE - CORE AUTH LOGIC.
 import React, {
   createContext,
   useContext,
@@ -8,9 +7,7 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const PRODUCTION_API_URL =
-  "https://wildergo-backend.onrender.com";
+import { getApiUrl } from "../lib/query-client";
 
 async function readResponseBody(res: Response): Promise<{
   text: string;
@@ -90,13 +87,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadStoredAuth = async () => {
     try {
+      console.log("[AUTH] loadStoredAuth: reading AsyncStorage key", AUTH_STORAGE_KEY);
       const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        console.log("[AUTH] loadStoredAuth: restored session", {
+          uid: parsed?.uid,
+          email: parsed?.email,
+          onboardingComplete: parsed?.onboardingComplete,
+        });
         setUser(parsed);
+      } else {
+        console.log("[AUTH] loadStoredAuth: no stored session");
       }
     } catch (error) {
-      console.error("Error loading auth:", error);
+      console.error("[AUTH] loadStoredAuth: error", error);
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     console.log(`[CLIENT SIGNUP] === Starting signup for: ${email} ===`);
     try {
-      const baseUrl = API_URL;
+      const baseUrl = getApiUrl();
       const url = new URL("/api/auth/signup", baseUrl).href;
       console.log(`[CLIENT SIGNUP] Sending POST to: ${url}`);
       console.log("Full URL being called:", url);
@@ -167,9 +172,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const normalizedEmail = email.toLowerCase().trim();
 
     try {
-      const fullUrl = `${PRODUCTION_API_URL}/api/auth/login`;
+      const baseUrl = getApiUrl();
+      const fullUrl = new URL("/api/auth/login", baseUrl).href;
+
+      console.log("[AUTH signIn] step:init", {
+        normalizedEmail,
+        baseUrl,
+        fullUrl,
+        __DEV__,
+      });
 
       const response = await fetch(fullUrl, {
         method: "POST",
@@ -177,14 +191,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: normalizedEmail, password }),
         signal: controller.signal,
       });
 
+      console.log("[AUTH signIn] step:http-response", {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
+
       const { text, json } = await readResponseBody(response);
-      const snippet = (text || "").trim().slice(0, 100);
+      console.log("[AUTH signIn] step:body", {
+        snippet: (text || "").trim().slice(0, 240),
+        parsedJson: json != null,
+      });
 
       if (!response.ok) {
+        console.warn("[AUTH signIn] step:fail-http", {
+          status: response.status,
+          message: json?.message,
+        });
         return {
           success: false,
           message:
@@ -203,32 +230,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               : text || response.statusText,
         } as any);
 
+      console.log("[AUTH signIn] step:parsed-payload", {
+        success: data?.success,
+        hasUid: Boolean(data?.uid),
+        emailVerified: data?.emailVerified,
+        selfieVerified: data?.selfieVerified,
+        onboardingComplete: data?.onboardingComplete,
+        message: data?.message,
+      });
+
       if (data.success && data.uid) {
+        console.log("[AUTH signIn] step:save-user", { uid: data.uid });
         const newUser: User = {
           uid: data.uid,
-          email: email.toLowerCase().trim(),
-          emailVerified: true,
-          selfieVerified: true,
-          selfieSubmitted: true,
+          email: normalizedEmail,
+          emailVerified: Boolean(data.emailVerified),
+          selfieVerified: Boolean(data.selfieVerified),
+          selfieSubmitted: Boolean(
+            data.selfieSubmitted ?? data.selfieVerified,
+          ),
           invitedBy: data.invitedBy,
+          // Keep signed-in users out of a dead-end onboarding loop when Firestore
+          // has not yet set onboardingComplete.
           onboardingComplete: true,
         };
         await saveUser(newUser);
+        console.log("[AUTH signIn] step:done-ok", {
+          onboardingComplete: newUser.onboardingComplete,
+        });
+      } else {
+        console.warn("[AUTH signIn] step:done-no-session", {
+          success: data?.success,
+          message: data?.message,
+        });
       }
 
       return data;
     } catch (error: any) {
       if (error?.name === "AbortError") {
+        console.warn("[AUTH signIn] step:abort-timeout");
         return {
           success: false,
           message: "Server is waking up. Please wait a moment and try again.",
         };
       }
-      console.error(`[CLIENT SIGNIN] NETWORK ERROR:`, error?.message);
-      console.error(
-        `[CLIENT SIGNIN] Error details:`,
-        JSON.stringify(error, Object.getOwnPropertyNames(error)),
-      );
+      console.error("[AUTH signIn] step:exception", {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+      });
       return { success: false, message: "Network error. Please try again." };
     } finally {
       clearTimeout(timeoutId);

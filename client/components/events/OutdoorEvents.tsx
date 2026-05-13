@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  Switch,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
@@ -108,6 +109,13 @@ interface OutdoorEvent {
   schedule?: string[];
   weather?: EventWeather;
   cellService?: CellServiceQuality;
+  // Ghost Hosting fields
+  hostId: string;
+  isLocationPrivate: boolean;
+  requestedGuests: string[];
+  approvedGuests: string[];
+  latitude: number;
+  longitude: number;
 }
 
 const EVENT_CARD_WIDTH = 220;
@@ -246,6 +254,12 @@ const sampleEvents: OutdoorEvent[] = [
       "5:00 PM - Set up camp",
     ],
     cellService: "bad",
+    hostId: "host-alex-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-123", "user-456"],
+    approvedGuests: ["user-789"],
+    latitude: 37.7833,
+    longitude: -107.6167,
     weather: {
       condition: "sunny",
       temperature: 58,
@@ -303,6 +317,12 @@ const sampleEvents: OutdoorEvent[] = [
       "1:00 PM - Afternoon runs",
     ],
     cellService: "good",
+    hostId: "host-jake-id",
+    isLocationPrivate: false,
+    requestedGuests: [],
+    approvedGuests: [],
+    latitude: 37.2753,
+    longitude: -107.8801,
     weather: {
       condition: "partlyCloudy",
       temperature: 52,
@@ -401,6 +421,13 @@ const sampleEvents: OutdoorEvent[] = [
         },
       ],
     },
+    // Ghost Hosting fields
+    hostId: "host-dakota-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-456"],
+    approvedGuests: [],
+    latitude: 37.8123,
+    longitude: -107.6636,
   },
   {
     id: "3",
@@ -463,6 +490,13 @@ const sampleEvents: OutdoorEvent[] = [
         { hour: "8PM", temp: 46, condition: "clear", wind: 6, precip: 0 },
       ],
     },
+    // Ghost Hosting fields
+    hostId: "host-dakota-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-456"],
+    approvedGuests: [],
+    latitude: 37.8123,
+    longitude: -107.6636,
   },
   {
     id: "4",
@@ -520,9 +554,16 @@ const sampleEvents: OutdoorEvent[] = [
         { hour: "2PM", temp: 60, condition: "sunny", wind: 8, precip: 0 },
       ],
     },
+    // Ghost Hosting fields
+    hostId: "host-lila-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-789"],
+    approvedGuests: [],
+    latitude: 39.6544,
+    longitude: -105.2061,
   },
   {
-    id: "4",
+    id: "5",
     title: "Stargazing & Night Photography",
     description:
       "Capturing the Milky Way at a dark sky location. Bring tripods and warm layers. Clear skies expected!",
@@ -567,9 +608,16 @@ const sampleEvents: OutdoorEvent[] = [
         { hour: "12AM", temp: 38, condition: "clear", wind: 3, precip: 0 },
       ],
     },
+    // Ghost Hosting fields
+    hostId: "host-maria-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-101"],
+    approvedGuests: [],
+    latitude: 38.5056,
+    longitude: -109.7409,
   },
   {
-    id: "5",
+    id: "6",
     title: "Off-Road Adventure Day",
     description:
       "Taking the rigs on some 4x4 trails! Need high clearance. Winch and recovery gear recommended.",
@@ -637,6 +685,105 @@ const sampleEvents: OutdoorEvent[] = [
         },
       ],
     },
+    // Ghost Hosting fields
+    hostId: "host-sam-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-202"],
+    approvedGuests: [],
+    latitude: 39.7392,
+    longitude: -105.1503,
+  },
+  {
+    id: "7",
+    title: "Canyon Meetup",
+    description:
+      "Group campfire and day hikes on red-rock ledges. Perfect for new friends, storytelling, and sunset views.",
+    activityType: "camp",
+    skillLevel: "beginner",
+    hostName: "Nina",
+    hostImage: profileImages.alex,
+    location: "Sedona, AZ",
+    date: "Mar 12, 2026",
+    time: "4:00 PM",
+    maxAttendees: 12,
+    currentAttendees: 7,
+    imageUrl: natureImages.canyonVista,
+    cellService: "fair",
+    hostId: "host-nina-id",
+    isLocationPrivate: false,
+    requestedGuests: [],
+    approvedGuests: [],
+    latitude: 34.8697,
+    longitude: -111.7609,
+  },
+  {
+    id: "8",
+    title: "Glacier Trek",
+    description:
+      "A guided glacier trek with photo breaks and a cozy alpine cookout after the hike.",
+    activityType: "explore",
+    skillLevel: "intermediate",
+    hostName: "Mia",
+    hostImage: profileImages.sarah,
+    location: "Glacier National Park, MT",
+    date: "Mar 18, 2026",
+    time: "8:00 AM",
+    maxAttendees: 8,
+    currentAttendees: 5,
+    imageUrl: natureImages.starryNight,
+    cellService: "bad",
+    hostId: "host-mia-id",
+    isLocationPrivate: true,
+    requestedGuests: ["user-303"],
+    approvedGuests: ["user-404"],
+    latitude: 48.7596,
+    longitude: -113.7870,
+  },
+  {
+    id: "9",
+    title: "Moonlit Campfire Circle",
+    description:
+      "Nighttime social with acoustic jams, marshmallows, and weather-safe tips for cold desert evenings.",
+    activityType: "photography",
+    skillLevel: "beginner",
+    hostName: "Riley",
+    hostImage: profileImages.jordan,
+    location: "Joshua Tree, CA",
+    date: "Mar 20, 2026",
+    time: "7:30 PM",
+    maxAttendees: 10,
+    currentAttendees: 8,
+    imageUrl: natureImages.starryNight,
+    cellService: "fair",
+    hostId: "host-riley-id",
+    isLocationPrivate: false,
+    requestedGuests: [],
+    approvedGuests: [],
+    latitude: 33.8734,
+    longitude: -115.9010,
+  },
+  {
+    id: "10",
+    title: "Red Ridge Trail Run",
+    description:
+      "Daylight trail run over red rock ridges with panoramic views and a quick summit lunch.",
+    activityType: "mtb",
+    skillLevel: "intermediate",
+    hostName: "Jordan",
+    hostImage: profileImages.sam,
+    location: "Moab, UT",
+    date: "Mar 22, 2026",
+    time: "9:30 AM",
+    maxAttendees: 8,
+    currentAttendees: 6,
+    imageUrl: natureImages.mountainLake,
+    cellService: "good",
+    hostId: "host-jordan-id",
+    isLocationPrivate: false,
+    requestedGuests: [],
+    approvedGuests: [],
+    latitude: 38.5733,
+    longitude: -109.5498,
   },
 ];
 
@@ -655,6 +802,10 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
     selectedFilter === "all"
       ? sampleEvents
       : sampleEvents.filter((e) => e.activityType === selectedFilter);
+
+  const safeFilteredEvents = (Array.isArray(filteredEvents) ? filteredEvents : []).filter(
+    (event): event is OutdoorEvent => !!event && typeof event === "object",
+  );
 
   const filters: (ActivityType | "all")[] = [
     "all",
@@ -735,36 +886,39 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
           { paddingRight: spacing.lg },
         ]}
       >
-        {filteredEvents.map((event) => (
+        {safeFilteredEvents.map((event, index) => (
           <TouchableOpacity
-            key={event.id}
+            key={`${event.id}-${index}`}
             style={styles.eventCard}
             onPress={() => setSelectedEvent(event)}
             activeOpacity={0.9}
           >
             <Image
-              source={{ uri: event.imageUrl }}
+              source={{ uri: event?.imageUrl ?? "" }}
               style={styles.eventImage}
               contentFit="cover"
             />
             <View style={styles.eventBadge}>
               <Ionicons
-                name={activityIcons[event.activityType]}
+                name={activityIcons[event?.activityType ?? "explore"]}
                 size={12}
                 color="#FFFFFF"
               />
               <Text style={styles.eventBadgeText}>
-                {activityLabels[event.activityType]}
+                {activityLabels[event?.activityType ?? "explore"]}
               </Text>
             </View>
             <View
               style={[
                 styles.skillBadge,
-                { backgroundColor: skillLevelColors[event.skillLevel] },
+                {
+                  backgroundColor:
+                    skillLevelColors[event?.skillLevel ?? "beginner"],
+                },
               ]}
             >
               <Text style={styles.skillBadgeText}>
-                {skillLevelLabels[event.skillLevel]}
+                {skillLevelLabels[event?.skillLevel ?? "beginner"]}
               </Text>
             </View>
             {event.weather ? (
@@ -774,26 +928,28 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
                     styles.weatherBadge,
                     {
                       backgroundColor:
-                        impactRatingColors[event.weather.impactRating],
+                        impactRatingColors[
+                          event.weather?.impactRating ?? "fair"
+                        ],
                     },
                   ]}
                 >
                   <Ionicons
-                    name={getWeatherIcon(event.weather.condition)}
+                    name={getWeatherIcon(event.weather?.condition ?? "sunny")}
                     size={12}
                     color="#FFFFFF"
                   />
                   <Text style={styles.weatherBadgeTemp}>
-                    {event.weather.temperature}°
+                    {event.weather?.temperature ?? "--"}°
                   </Text>
                 </View>
-                {event.weather.alerts && event.weather.alerts.length > 0 ? (
+                {event.weather?.alerts?.length ? (
                   <View
                     style={[
                       styles.alertIndicator,
                       {
                         backgroundColor:
-                          event.weather.alerts[0].severity === "danger"
+                          event.weather.alerts?.[0]?.severity === "danger"
                             ? "#EF4444"
                             : "#F59E0B",
                       },
@@ -806,7 +962,7 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
             ) : null}
             <View style={styles.eventContent}>
               <Text style={styles.eventTitle} numberOfLines={2}>
-                {event.title}
+                {event?.title ?? "Untitled Event"}
               </Text>
               <View style={styles.eventMeta}>
                 <View style={styles.eventMetaRow}>
@@ -815,7 +971,9 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
                     size={12}
                     color={colors.bark[400]}
                   />
-                  <Text style={styles.eventMetaText}>{event.location}</Text>
+                  <Text style={styles.eventMetaText}>
+                    {event?.location ?? "Unknown location"}
+                  </Text>
                 </View>
                 <View style={styles.eventMetaRow}>
                   <Ionicons
@@ -823,7 +981,9 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
                     size={12}
                     color={colors.bark[400]}
                   />
-                  <Text style={styles.eventMetaText}>{event.date}</Text>
+                  <Text style={styles.eventMetaText}>
+                    {event?.date ?? "TBD"}
+                  </Text>
                 </View>
               </View>
               {event.weather ? (
@@ -831,16 +991,23 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
                   <Text
                     style={[
                       styles.weatherImpactLabel,
-                      { color: impactRatingColors[event.weather.impactRating] },
+                      {
+                        color:
+                          impactRatingColors[
+                            event.weather?.impactRating ?? "fair"
+                          ],
+                      },
                     ]}
                   >
-                    {event.weather.impactRating.charAt(0).toUpperCase() +
-                      event.weather.impactRating.slice(1)}{" "}
+                    {(event.weather?.impactRating ?? "fair")
+                      .charAt(0)
+                      .toUpperCase() +
+                      (event.weather?.impactRating ?? "fair").slice(1)}{" "}
                     Conditions
                   </Text>
-                  {event.weather.alerts && event.weather.alerts.length > 0 ? (
+                  {event.weather?.alerts?.length ? (
                     <Text style={styles.alertPreviewText} numberOfLines={1}>
-                      {event.weather.alerts[0].title}
+                      {event.weather.alerts?.[0]?.title ?? ""}
                     </Text>
                   ) : null}
                 </View>
@@ -848,15 +1015,15 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
               <View style={styles.eventHostRow}>
                 <View style={styles.eventHost}>
                   <Image
-                    source={{ uri: event.hostImage }}
+                    source={{ uri: event?.hostImage ?? "" }}
                     style={styles.hostAvatar}
                     contentFit="cover"
                   />
                   <Text style={styles.hostName}>
-                    Hosted by {event.hostName}
+                    Hosted by {event?.hostName ?? "Host"}
                   </Text>
                 </View>
-                {event.cellService ? (
+                {event?.cellService ? (
                   <View
                     style={[
                       styles.cellServiceBadge,
@@ -889,13 +1056,17 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
                   style={[
                     styles.attendeeFill,
                     {
-                      width: `${(event.currentAttendees / event.maxAttendees) * 100}%`,
+                      width: `${
+                        ((event?.currentAttendees ?? 0) /
+                          (event?.maxAttendees ?? 1)) *
+                        100
+                      }%`,
                     },
                   ]}
                 />
               </View>
               <Text style={styles.attendeeText}>
-                {event.currentAttendees}/{event.maxAttendees} spots filled
+                {event?.currentAttendees ?? 0}/{event?.maxAttendees ?? 1} spots filled
               </Text>
             </View>
           </TouchableOpacity>
@@ -906,6 +1077,15 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
         event={selectedEvent}
         visible={selectedEvent !== null}
         onClose={() => setSelectedEvent(null)}
+        currentUserId="mock-user-id"
+        onRequestToJoin={(eventId) => {
+          // Mock implementation - in real app, this would call an API
+          console.log(`Requesting to join event ${eventId}`);
+        }}
+        onApproveGuest={(eventId, guestId) => {
+          // Mock implementation - in real app, this would call an API
+          console.log(`Approving guest ${guestId} for event ${eventId}`);
+        }}
       />
 
       <CreateEventModal
@@ -920,11 +1100,29 @@ interface EventDetailModalProps {
   event: OutdoorEvent | null;
   visible: boolean;
   onClose: () => void;
+  currentUserId: string;
+  onRequestToJoin: (eventId: string) => void;
+  onApproveGuest: (eventId: string, guestId: string) => void;
 }
 
-function EventDetailModal({ event, visible, onClose }: EventDetailModalProps) {
+function EventDetailModal({ 
+  event, 
+  visible, 
+  onClose, 
+  currentUserId,
+  onRequestToJoin,
+  onApproveGuest 
+}: EventDetailModalProps) {
   const [joined, setJoined] = useState(false);
   if (!event) return null;
+
+  // Ghost Hosting logic
+  const isHost = event.hostId === currentUserId;
+  const approvedGuests = event.approvedGuests ?? [];
+  const requestedGuests = event.requestedGuests ?? [];
+  const isApproved = approvedGuests.includes(currentUserId);
+  const hasRequested = requestedGuests.includes(currentUserId);
+  const canSeeExactLocation = isHost || isApproved;
 
   const ModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
@@ -978,7 +1176,9 @@ function EventDetailModal({ event, visible, onClose }: EventDetailModalProps) {
         <View style={styles.detailInfo}>
           <View style={styles.detailInfoRow}>
             <Ionicons name="location" size={18} color={colors.deepTeal[500]} />
-            <Text style={styles.detailInfoText}>{event.location}</Text>
+            <Text style={styles.detailInfoText}>
+              {canSeeExactLocation ? event.location : "Location revealed upon approval"}
+            </Text>
           </View>
           <View style={styles.detailInfoRow}>
             <Ionicons name="calendar" size={18} color={colors.deepTeal[500]} />
@@ -1297,20 +1497,61 @@ function EventDetailModal({ event, visible, onClose }: EventDetailModalProps) {
           </>
         ) : null}
 
-        <TouchableOpacity
-          style={[styles.joinButton, joined && { backgroundColor: "#4ADE80" }]}
-          onPress={() => setJoined(true)}
-          disabled={joined}
-        >
-          <Ionicons
-            name={joined ? "checkmark-circle" : "add-circle"}
-            size={20}
-            color="#FFFFFF"
-          />
-          <Text style={styles.joinButtonText}>
-            {joined ? "Joined!" : "Join This Adventure"}
-          </Text>
-        </TouchableOpacity>
+        {/* Ghost Hosting: Conditional rendering based on user status */}
+        {isHost ? (
+          // Host view: Show requested guests with approve buttons
+          <View style={styles.hostControls}>
+            <Text style={styles.sectionTitle}>Guest Requests</Text>
+            {requestedGuests.length === 0 ? (
+              <Text style={styles.noRequestsText}>No pending requests</Text>
+            ) : (
+              requestedGuests.map((guestId) => (
+                <View key={guestId} style={styles.guestRequestRow}>
+                  <Text style={styles.guestIdText}>{guestId}</Text>
+                  <TouchableOpacity
+                    style={styles.approveButton}
+                    onPress={() => onApproveGuest(event.id, guestId)}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    <Text style={styles.approveButtonText}>Approve</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+        ) : isApproved ? (
+          // Approved guest: Show regular join button
+          <TouchableOpacity
+            style={[styles.joinButton, joined && { backgroundColor: "#4ADE80" }]}
+            onPress={() => setJoined(true)}
+            disabled={joined}
+          >
+            <Ionicons
+              name={joined ? "checkmark-circle" : "add-circle"}
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.joinButtonText}>
+              {joined ? "Joined!" : "Join This Adventure"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          // Non-approved user: Show request to join button
+          <TouchableOpacity
+            style={styles.requestButton}
+            onPress={() => onRequestToJoin(event.id)}
+            disabled={hasRequested}
+          >
+            <Ionicons
+              name={hasRequested ? "hourglass" : "person-add"}
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.requestButtonText}>
+              {hasRequested ? "Request Pending" : "Request to Join"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -1353,6 +1594,7 @@ function CreateEventModal({ visible, onClose }: CreateEventModalProps) {
     time: "",
     maxAttendees: "8",
     schedule: "",
+    hideExactLocationUntilApproved: true,
   });
 
   const activityOptions: ActivityType[] = [
@@ -1502,6 +1744,35 @@ function CreateEventModal({ visible, onClose }: CreateEventModalProps) {
         </View>
       </View>
 
+      <Text style={styles.hostingLocationPrivacyNote}>
+        {formData.hideExactLocationUntilApproved
+          ? "Location will only be revealed to guests you manually approve."
+          : "Exact location may be visible to guests before you approve them."}
+      </Text>
+
+      <View style={styles.formGroup}>
+        <View style={styles.hostingPrivacyRow}>
+          <Text style={styles.hostingPrivacyLabel}>
+            Hide exact location until guest is approved.
+          </Text>
+          <Switch
+            value={formData.hideExactLocationUntilApproved}
+            onValueChange={(hideExactLocationUntilApproved) =>
+              setFormData((prev) => ({
+                ...prev,
+                hideExactLocationUntilApproved,
+              }))
+            }
+            trackColor={{
+              false: "rgba(255, 255, 255, 0.2)",
+              true: colors.deepTeal[500],
+            }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="rgba(255, 255, 255, 0.2)"
+          />
+        </View>
+      </View>
+
       <View style={styles.formRow}>
         <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
           <Text style={styles.formLabel}>Date</Text>
@@ -1600,7 +1871,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.xl,
     fontFamily: typography.fontFamily.heading,
     color: colors.bark[900],
   },
@@ -1616,7 +1887,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: typography.fontSize.sm,
     fontFamily: typography.fontFamily.bodyMedium,
-    color: "#FFFFFF",
+    color: colors.text.inverse,
   },
   filterScroll: {
     paddingHorizontal: spacing.lg,
@@ -1630,7 +1901,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: colors.card.background,
     marginRight: spacing.xs,
   },
   filterChipActive: {
@@ -1642,7 +1913,7 @@ const styles = StyleSheet.create({
     color: colors.bark[500],
   },
   filterChipTextActive: {
-    color: "#FFFFFF",
+    color: colors.text.inverse,
   },
   eventsScroll: {
     paddingHorizontal: spacing.lg,
@@ -1650,7 +1921,7 @@ const styles = StyleSheet.create({
   },
   eventCard: {
     width: 220,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card.background,
     borderRadius: borderRadius.xl,
     overflow: "hidden",
     marginRight: spacing.md,
@@ -1666,7 +1937,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: colors.bark[900] + "B0",
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -1674,7 +1945,7 @@ const styles = StyleSheet.create({
   eventBadgeText: {
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamily.bodyMedium,
-    color: "#FFFFFF",
+    color: colors.text.inverse,
   },
   skillBadge: {
     position: "absolute",
@@ -1918,6 +2189,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.heading,
     color: "#FFFFFF",
     marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.heading,
+    color: "#FFFFFF",
+    marginBottom: spacing.md,
   },
   detailDescription: {
     fontSize: typography.fontSize.sm,
@@ -2211,6 +2488,59 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bodyMedium,
     color: "#FFFFFF",
   },
+  hostControls: {
+    marginTop: spacing.lg,
+  },
+  noRequestsText: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.body,
+    color: "rgba(255, 255, 255, 0.6)",
+    textAlign: "center",
+    marginBottom: spacing.md,
+  },
+  guestRequestRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  guestIdText: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.body,
+    color: "#FFFFFF",
+  },
+  approveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.moss[500],
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  approveButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.bodyMedium,
+    color: "#FFFFFF",
+  },
+  requestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.deepTeal[500],
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.lg,
+  },
+  requestButtonText: {
+    fontSize: typography.fontSize.md,
+    fontFamily: typography.fontFamily.bodyMedium,
+    color: "#FFFFFF",
+  },
   createModal: {
     borderTopLeftRadius: borderRadius.xxl,
     borderTopRightRadius: borderRadius.xxl,
@@ -2243,6 +2573,33 @@ const styles = StyleSheet.create({
   },
   formRow: {
     flexDirection: "row",
+  },
+  hostingPrivacyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  hostingPrivacyLabel: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.bodyMedium,
+    color: "rgba(255, 255, 255, 0.92)",
+    lineHeight: 20,
+  },
+  hostingLocationPrivacyNote: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamily.body,
+    color: "rgba(255, 255, 255, 0.65)",
+    lineHeight: 18,
+    marginBottom: spacing.md,
+    marginTop: spacing.xs,
   },
   formLabel: {
     fontSize: typography.fontSize.sm,

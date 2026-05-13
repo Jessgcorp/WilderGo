@@ -2,10 +2,16 @@ import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { createServer } from "node:http";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 import authRoutes from "./routes/authRoutes";
 import { initializeFirebase } from "./services/firebase";
 import * as fs from "fs";
 import * as path from "path";
+
+// ESM __dirname polyfill
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const log = console.log;
@@ -216,7 +222,7 @@ function configureExpoAndLanding(app: express.Application) {
   app.use(express.static(path.join(__dirname, "./public")));
 
   // Catch-all route to serve landing page
-  app.get("*", (req: Request, res: Response) => {
+  app.use((_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, "../templates/landing-page.html"));
   });
 
@@ -281,7 +287,7 @@ function setupErrorHandler(app: express.Application) {
   });
 
   // 3. The "Insurance Policy" - send any unknown URL to the landing page
-  app.get("*", (_req: Request, res: Response) => {
+  app.use((_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, "..", "templates", "landing-page.html"));
   });
 

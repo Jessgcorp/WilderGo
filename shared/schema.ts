@@ -236,6 +236,61 @@ export const travelSpots = pgTable("travel_spots", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Campfire events (meetups)
+export const campfireEvents = pgTable("campfire_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  hostId: varchar("host_id")
+    .references(() => profiles.id)
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+
+  // Event details
+  title: text("title").notNull(),
+  description: text("description"),
+  eventType: text("event_type").default("meetup"), // 'meetup', 'potluck', 'workshop', 'hangout', 'other'
+
+  // Location
+  latitude: real("latitude").notNull(),
+  longitude: real("longitude").notNull(),
+  address: text("address"),
+  locationName: text("location_name"),
+
+  // Timing
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at"),
+
+  // Capacity
+  maxAttendees: integer("max_attendees"),
+  currentAttendees: integer("current_attendees").default(1),
+
+  // Status
+  isCancelled: boolean("is_cancelled").default(false),
+  isPublic: boolean("is_public").default(true),
+
+  // Ghost Hosting privacy feature
+  isLocationPrivate: boolean("is_location_private").default(true),
+  requestedGuests: jsonb("requested_guests").$type<string[]>().default([]),
+  approvedGuests: jsonb("approved_guests").$type<string[]>().default([]),
+});
+
+// Campfire RSVPs
+export const campfireRsvps = pgTable("campfire_rsvps", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id")
+    .references(() => campfireEvents.id)
+    .notNull(),
+  profileId: varchar("profile_id")
+    .references(() => profiles.id)
+    .notNull(),
+  status: text("status").default("going"), // 'going', 'maybe', 'not_going'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -281,6 +336,17 @@ export const insertTravelSpotSchema = createInsertSchema(travelSpots).omit({
   createdAt: true,
 });
 
+export const insertCampfireEventSchema = createInsertSchema(campfireEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCampfireRsvpSchema = createInsertSchema(campfireRsvps).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -305,6 +371,12 @@ export type SosAlert = typeof sosAlerts.$inferSelect;
 
 export type InsertTravelSpot = z.infer<typeof insertTravelSpotSchema>;
 export type TravelSpot = typeof travelSpots.$inferSelect;
+
+export type InsertCampfireEvent = z.infer<typeof insertCampfireEventSchema>;
+export type CampfireEvent = typeof campfireEvents.$inferSelect;
+
+export type InsertCampfireRsvp = z.infer<typeof insertCampfireRsvpSchema>;
+export type CampfireRsvp = typeof campfireRsvps.$inferSelect;
 
 export const userBadges = pgTable("user_badges", {
   id: varchar("id")

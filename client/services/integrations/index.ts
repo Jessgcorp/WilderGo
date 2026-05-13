@@ -4,12 +4,11 @@
  *
  * Future integrations:
  * - Mapbox for real maps
- * - OpenWeather for live weather data
+ * - Weather service for route and location forecasts
  * - Firebase for user profiles and real-time data
  * - Real location tracking
  */
 
 export * from "./mapbox";
-export * from "./openweather";
 export * from "./firebase";
 export * from "./location";

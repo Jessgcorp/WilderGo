@@ -1,6 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+// ESM __dirname polyfill
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 type MessagePayload = {
   senderUid: string;

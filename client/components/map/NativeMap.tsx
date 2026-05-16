@@ -1,8 +1,10 @@
 import React, { forwardRef, useMemo } from "react";
-import { Platform, StyleSheet, View, Text } from "react-native";
+import { Platform, StyleSheet, View, Text, Image } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/theme";
+
+const MOCK_DEV_MAP_IMAGE = require("../../../attached_assets/Screenshot_2026-02-12_at_9.23.46_AM_1770913433846.png");
 
 export interface MapMarkerData {
   id: string;
@@ -112,6 +114,18 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(
       () => getCommunityMarkers(centerLat, centerLng),
       [Math.round(centerLat * 100) / 100, Math.round(centerLng * 100) / 100],
     );
+
+    if (__DEV__) {
+      return (
+        <View style={styles.map}>
+          <Image
+            source={MOCK_DEV_MAP_IMAGE}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        </View>
+      );
+    }
 
     return (
       <MapView

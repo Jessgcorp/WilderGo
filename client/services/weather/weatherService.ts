@@ -2,20 +2,37 @@
 const OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1/forecast";
 
 // WMO Weather Code to condition mapping
-const getWeatherCondition = (code: number): { condition: string; description: string; icon: string } => {
-  if (code === 0) return { condition: "Clear", description: "clear sky", icon: "01d" };
-  if (code <= 3) return { condition: "Clouds", description: "partly cloudy", icon: "02d" };
-  if (code <= 9) return { condition: "Clouds", description: "overcast", icon: "03d" };
+const getWeatherCondition = (
+  code: number,
+): { condition: string; description: string; icon: string } => {
+  if (code === 0)
+    return { condition: "Clear", description: "clear sky", icon: "01d" };
+  if (code <= 3)
+    return { condition: "Clouds", description: "partly cloudy", icon: "02d" };
+  if (code <= 9)
+    return { condition: "Clouds", description: "overcast", icon: "03d" };
   if (code <= 19) return { condition: "Fog", description: "fog", icon: "50d" };
-  if (code <= 29) return { condition: "Rain", description: "drizzle", icon: "09d" };
-  if (code <= 39) return { condition: "Rain", description: "rain", icon: "10d" };
-  if (code <= 49) return { condition: "Snow", description: "snow", icon: "13d" };
-  if (code <= 59) return { condition: "Rain", description: "freezing rain", icon: "10d" };
-  if (code <= 69) return { condition: "Snow", description: "snow", icon: "13d" };
-  if (code <= 79) return { condition: "Rain", description: "rain showers", icon: "09d" };
-  if (code <= 84) return { condition: "Snow", description: "snow showers", icon: "13d" };
-  if (code <= 94) return { condition: "Rain", description: "thunderstorm", icon: "11d" };
-  return { condition: "Thunderstorm", description: "thunderstorm with hail", icon: "11d" };
+  if (code <= 29)
+    return { condition: "Rain", description: "drizzle", icon: "09d" };
+  if (code <= 39)
+    return { condition: "Rain", description: "rain", icon: "10d" };
+  if (code <= 49)
+    return { condition: "Snow", description: "snow", icon: "13d" };
+  if (code <= 59)
+    return { condition: "Rain", description: "freezing rain", icon: "10d" };
+  if (code <= 69)
+    return { condition: "Snow", description: "snow", icon: "13d" };
+  if (code <= 79)
+    return { condition: "Rain", description: "rain showers", icon: "09d" };
+  if (code <= 84)
+    return { condition: "Snow", description: "snow showers", icon: "13d" };
+  if (code <= 94)
+    return { condition: "Rain", description: "thunderstorm", icon: "11d" };
+  return {
+    condition: "Thunderstorm",
+    description: "thunderstorm with hail",
+    icon: "11d",
+  };
 };
 
 export interface ForecastDay {
@@ -41,6 +58,21 @@ export interface HourlyForecast {
   humidity: number;
   windSpeed: number;
   precipitation: number;
+}
+
+export interface WeatherData {
+  success: boolean;
+  temperature?: number;
+  feelsLike?: number;
+  condition?: string;
+  description?: string;
+  icon?: string;
+  humidity?: number;
+  windSpeed?: number;
+  windDirection?: number;
+  visibility?: number;
+  cloudCover?: number;
+  error?: string;
 }
 
 export interface HourlyForecastData {
@@ -151,7 +183,9 @@ export const getForecast = async (
       const condition = getWeatherCondition(daily.weather_code[i]);
       dailyForecasts.push({
         date: new Date(daily.time[i]).toLocaleDateString(),
-        temperature: Math.round((daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2),
+        temperature: Math.round(
+          (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
+        ),
         tempMin: Math.round(daily.temperature_2m_min[i]),
         tempMax: Math.round(daily.temperature_2m_max[i]),
         condition: condition.condition,
@@ -378,7 +412,9 @@ export const getDetailedForecast = async (
             month: "short",
             day: "numeric",
           }),
-          temperature: Math.round((daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2),
+          temperature: Math.round(
+            (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
+          ),
           tempMin: Math.round(daily.temperature_2m_min[i]),
           tempMax: Math.round(daily.temperature_2m_max[i]),
           condition: condition.condition,

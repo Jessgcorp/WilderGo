@@ -6,6 +6,25 @@ import * as Device from "expo-device";
 const LIVE_PRODUCTION_API_URL =
   "https://aa60d38e-336a-4c6c-8c7a-2e8f4ae13a3f-00-37dgmtff0mvif.picard.replit.dev/";
 
+const DEFAULT_API_TIMEOUT_MS = 15000;
+
+export async function fetchWithTimeout(
+  input: RequestInfo,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_API_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function withTrailingSlash(url: string): string {
   return url.endsWith("/") ? url : `${url}/`;
 }
@@ -105,12 +124,16 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  const res = await fetchWithTimeout(
+    url.toString(),
+    {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    },
+    DEFAULT_API_TIMEOUT_MS,
+  );
 
   await throwIfResNotOk(res);
   return res;
@@ -125,9 +148,13 @@ export const getQueryFn: <T>(options: {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
-    const res = await fetch(url, {
-      credentials: "include",
-    });
+    const res = await fetchWithTimeout(
+      url.toString(),
+      {
+        credentials: "include",
+      },
+      DEFAULT_API_TIMEOUT_MS,
+    );
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

@@ -1,12 +1,7 @@
 import { useEffect, useCallback } from "react";
-import {
-  Stack,
-  useRouter,
-  useSegments,
-  useRootNavigationState,
-} from "expo-router";
+import { Stack, useRouter, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, LogBox } from "react-native";
+import { View, Text, ActivityIndicator, LogBox, Pressable } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { RussoOne_400Regular } from "@expo-google-fonts/russo-one";
@@ -37,25 +32,40 @@ LogBox.ignoreAllLogs();
 
 SplashScreen.preventAutoHideAsync();
 
-// Emergency splash screen hide in case fonts don't load
+// Global splash screen timeout: 7 seconds (ensures proper font loading and app initialization)
+// Will not be overridden by any other loading state
+const GLOBAL_SPLASH_TIMEOUT = 7000;
 setTimeout(() => {
   SplashScreen.hideAsync().catch(() => {});
-}, 3000);
+}, GLOBAL_SPLASH_TIMEOUT);
 
 function AuthenticatedLayout() {
-  const { user, isLoading } = useAuth();
-  const segments = useSegments();
+  const { user, isLoading, serviceError, clearServiceError } = useAuth();
   const router = useRouter();
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
     if (isLoading) return;
     if (!navigationState?.key) return;
+    if (serviceError && !user) return;
 
-    // TEMPORARY AUTH BYPASS FOR MAP DEBUGGING
-    // Commented out the normal auth redirect flow and force the map tab directly.
-    router.replace("/(tabs)/map" as any);
-  }, [isLoading, navigationState?.key, router]);
+    if (!user) {
+      router.replace("/(onboarding)/welcome" as any);
+      return;
+    }
+
+    const onboardingRoute = (() => {
+      if (!user.emailVerified) return "/(onboarding)/email-verification";
+      if (!user.selfieSubmitted && !user.selfieVerified)
+        return "/(onboarding)/selfie-verify";
+      if (!user.vehicle) return "/(onboarding)/vehicle-select";
+      if (!user.nomadStyle) return "/(onboarding)/nomad-style";
+      if (!user.onboardingComplete) return "/(onboarding)/complete";
+      return "/(tabs)";
+    })();
+
+    router.replace(onboardingRoute as any);
+  }, [isLoading, navigationState?.key, router, serviceError, user]);
 
   if (isLoading) {
     return (
@@ -68,6 +78,62 @@ function AuthenticatedLayout() {
         }}
       >
         <ActivityIndicator size="large" color={colors.ember[500]} />
+      </View>
+    );
+  }
+
+  if (serviceError && !user) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 24,
+          backgroundColor: colors.background.primary,
+        }}
+      >
+        <Text
+          style={{
+            color: colors.text.primary,
+            fontSize: 20,
+            fontWeight: "700",
+            marginBottom: 16,
+            textAlign: "center",
+          }}
+        >
+          Service Unavailable
+        </Text>
+        <Text
+          style={{
+            color: colors.text.secondary,
+            fontSize: 16,
+            lineHeight: 24,
+            textAlign: "center",
+            marginBottom: 24,
+          }}
+        >
+          {serviceError}
+        </Text>
+        <Pressable
+          onPress={clearServiceError}
+          style={{
+            backgroundColor: colors.ember[500],
+            paddingVertical: 14,
+            paddingHorizontal: 24,
+            borderRadius: 12,
+          }}
+        >
+          <Text
+            style={{
+              color: "white",
+              fontWeight: "700",
+              textAlign: "center",
+            }}
+          >
+            Retry
+          </Text>
+        </Pressable>
       </View>
     );
   }
@@ -121,7 +187,7 @@ export default function RootLayout() {
               <GestureHandlerRootView style={{ flex: 1 }}>
                 <KeyboardProvider>
                   <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-                    <StatusBar style="light" />
+                    <StatusBar style="light" hidden />
                     <AuthenticatedLayout />
                   </View>
                 </KeyboardProvider>

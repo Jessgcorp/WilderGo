@@ -73,20 +73,20 @@ export default function WelcomeScreen() {
         ]}
       >
         <Image
-          source={{ uri: natureImages.vanStars }}
+          source={{ uri: natureImages.utahRedRocks }}
           style={styles.backgroundImage}
           contentFit="cover"
           transition={800}
         />
       </Animated.View>
 
-      {/* Dark Gradient Overlay */}
+      {/* Light Gradient Overlay - Utah Red Rocks */}
       <LinearGradient
         colors={[
-          "rgba(0, 0, 0, 0.2)",
-          "rgba(0, 0, 0, 0.4)",
-          "rgba(30, 24, 20, 0.8)",
-          "rgba(30, 24, 20, 0.95)",
+          "rgba(255, 255, 255, 0.05)",
+          "rgba(255, 255, 255, 0.1)",
+          "rgba(139, 90, 43, 0.25)",
+          "rgba(139, 90, 43, 0.4)",
         ]}
         locations={[0, 0.3, 0.7, 1]}
         style={styles.gradient}
@@ -106,11 +106,6 @@ export default function WelcomeScreen() {
             />
           </View>
           <Logo size="hero" variant="light" showTagline />
-          <View style={styles.taglineContainer}>
-            <View style={styles.taglineLine} />
-            <Text style={styles.tagline}>Invite-Only Nomadic Community</Text>
-            <View style={styles.taglineLine} />
-          </View>
         </Animated.View>
 
         {/* Features Glass Card */}
@@ -160,6 +155,29 @@ export default function WelcomeScreen() {
                 <Text style={styles.featureTitle}>Builds Mode</Text>
                 <Text style={styles.featureText}>
                   Connect with van builders and share your rig journey
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.featureDivider} />
+
+            <View style={styles.featureRow}>
+              <View
+                style={[
+                  styles.featureIcon,
+                  { backgroundColor: colors.ember[500] + "30" },
+                ]}
+              >
+                <Ionicons
+                  name="satellite"
+                  size={22}
+                  color={colors.ember[500]}
+                />
+              </View>
+              <View style={styles.featureContent}>
+                <Text style={styles.featureTitle}>Satellite SOS Coordination</Text>
+                <Text style={styles.featureText}>
+                  View satellite coverage zones and SOS emergency options. Service must be enabled and verified inside the app.
                 </Text>
               </View>
             </View>
@@ -225,7 +243,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1E1814",
+    backgroundColor: "#E8C5A5",
   },
   backgroundContainer: {
     ...StyleSheet.absoluteFillObject,

@@ -262,11 +262,7 @@ export const builderProfiles: BuilderProfile[] = [
     rating: 4.9,
     reviewCount: 84,
     verified: true,
-    expertise: [
-      "Solar Installation",
-      "Battery Systems",
-      "Inverters",
-    ],
+    expertise: ["Solar Installation", "Battery Systems", "Inverters"],
     specialties: [
       { name: "Solar", icon: "sunny" },
       { name: "Battery", icon: "battery-charging" },
@@ -286,11 +282,7 @@ export const builderProfiles: BuilderProfile[] = [
     rating: 4.8,
     reviewCount: 61,
     verified: true,
-    expertise: [
-      "Overland Wiring",
-      "Remote Power",
-      "Solar Design",
-    ],
+    expertise: ["Overland Wiring", "Remote Power", "Solar Design"],
     specialties: [
       { name: "Wiring", icon: "flash" },
       { name: "Solar", icon: "sunny" },

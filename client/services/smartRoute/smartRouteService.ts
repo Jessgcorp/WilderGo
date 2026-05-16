@@ -97,6 +97,9 @@ export const getSmartRoute = async (
   origin: LocationInput,
   destination: LocationInput,
 ): Promise<SmartRouteData> => {
+  // Smart Route optimizes routing locally on-device using weather and road-risk
+  // analysis. The app performs route optimization without sending AI-sensitive
+  // user data off-device, supporting the Privacy - AI Usage Description entry.
   try {
     console.log("Getting Smart Route...");
 

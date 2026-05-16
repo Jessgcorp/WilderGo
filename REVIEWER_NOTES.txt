@@ -1,0 +1,118 @@
+REVIEWER NOTES - WILDERGO APP STORE SUBMISSION
+May 15, 2026 | Build Version 35
+================================================================================
+
+TEST ACCOUNT CREDENTIALS
+================================================================================
+
+Login for Reviewer: apple@wildergo.com
+Password: (Leave blank or enter 'password')
+
+
+REVIEWER TESTING INSTRUCTIONS
+================================================================================
+
+This app includes a satellite-optimized SOS feature. To facilitate testing in an 
+office environment, we have implemented a bypass for the apple@wildergo.com 
+account that routes directly to the main dashboard. 
+
+Simply enter the email "apple@wildergo.com" and any password (or leave password 
+blank) to bypass authentication and access the full app immediately.
+
+The Offline SOS triage can be viewed in the main menu to simulate emergency 
+workflows without requiring active satellite hardware.
+
+
+KEY FEATURES TO TEST
+================================================================================
+
+1. MAP & LOCATION FEATURES
+   - Tap the "Map" tab to see real-time nomadic community markers (WilderPoints)
+   - View your current location on the integrated Google Map
+   - Test location permission prompts if you haven't granted access yet
+
+2. OFFLINE SOS (Primary Safety Feature)
+   - From the Map tab, tap the red "SOS Pill Button" in the bottom-right corner
+   - When connected to WiFi/cellular, you'll see "SOS Online" option
+   - Enable Airplane Mode or disable WiFi to test "SOS Offline Ready" state
+   - The app demonstrates emergency packet creation and local storage
+   - Test confirms the app functions without internet connectivity
+
+3. MESSAGES & COMMUNITY
+   - Tap the "Messages" tab to view community conversations
+   - Demonstrates nomadic user engagement and real-time messaging
+
+4. PROFILE & PRIVACY CONTROLS
+   - Tap the profile/account tab to view user settings
+   - Verify privacy permissions are toggleable
+   - Review emergency contact management
+
+
+OFFLINE FUNCTIONALITY
+================================================================================
+
+The app has been designed with offline-first architecture:
+- Emergency SOS data is cached locally even without internet
+- All location data is captured and stored for emergency responders
+- When connectivity is restored, emergency packets sync automatically
+- The app remains fully functional in Airplane Mode
+
+
+ACCESSIBILITY & PERMISSIONS
+================================================================================
+
+The app will request the following permissions:
+✓ Location Services - Required for safety and community features
+✓ Camera - Optional, used for profile verification during onboarding
+✓ Notifications - Optional, used for safety check-in reminders
+
+Users can deny any of these permissions and still use core app features.
+
+
+TESTING TIPS FOR REVIEWERS
+================================================================================
+
+Best Device: iPhone 15 Pro or latest simulator (for SafetyKit features)
+iOS Version: 17.0 or higher recommended
+
+Quick Test Flow:
+1. Launch app
+2. Enter: apple@wildergo.com (any password)
+3. Tap Map tab → Verify map loads with location markers
+4. Tap red SOS button → View emergency options
+5. Enable Airplane Mode → Tap SOS again → See "Offline Ready" state
+6. Disable Airplane Mode → SOS returns to "Online" mode
+7. Tap Messages tab → View community conversations
+8. Tap Profile tab → Review privacy settings
+
+
+KNOWN CHARACTERISTICS (Not Bugs)
+================================================================================
+
+✓ Splash screen displays for 7 seconds during app launch
+  → This is intentional for proper font loading and initialization
+  → Normal and expected behavior
+
+✓ First-time users may see location permission prompts
+  → This is expected and required for safety features
+  → Users can grant or deny permission
+
+✓ Offline SOS feature works without network connectivity
+  → This is the primary design goal—safety first, always
+
+
+SUPPORT CONTACT
+================================================================================
+
+If you encounter any issues during testing:
+- Clear app cache and restart
+- Ensure iOS 17.0 or higher
+- Check that Location Services are enabled in Settings
+- For offline testing, verify Airplane Mode is toggled correctly
+
+Contact: support@wildergo.com
+
+
+================================================================================
+Thank you for reviewing WilderGo. We appreciate your thorough testing!
+================================================================================

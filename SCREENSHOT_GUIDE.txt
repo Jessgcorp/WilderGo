@@ -1,0 +1,257 @@
+================================================================================
+WILDERGO APP - APP STORE REVIEW SCREENSHOT GUIDE
+5 Key Screens for Reviewer Demonstration
+================================================================================
+
+Use test account: apple@wildergo.com (no password required)
+The app will instantly bypass to the main tabs on login.
+
+================================================================================
+SCREEN 1: MAP VIEW WITH WILDERPOINTS & SOS BUTTON
+================================================================================
+Location: Main "(tabs)" → "map.tsx"
+Perfect State for Screenshot:
+✓ Google Map visible with user's current location centered
+✓ Multiple WilderPoint markers displayed (colored pins showing nomadic spots)
+✓ Red SOS Pill Button visible in bottom-right corner
+✓ Zoom/pan controls accessible
+✓ Search bar at top for location discovery
+✓ Community markers visible showing nearby nomads
+
+Why It Matters:
+- Demonstrates core navigation and safety feature accessibility
+- Shows real-time location tracking capability
+- Displays community discovery ("Find nomads near you" value prop)
+- SOS button is prominently placed for safety-critical access
+
+How to Get Perfect State:
+1. Log in with apple@wildergo.com
+2. Tap the "Map" tab at bottom
+3. Wait for Google Map to load with blue user location dot
+4. Verify 3-5 WilderPoint markers are visible around the map
+5. Screenshot with SOS button fully visible in red at bottom-right
+
+Reviewer Actions to Try:
+- Tap a WilderPoint marker → Should show nomad details
+- Tap the SOS Pill Button → Should show offline/online SOS options
+- Pan/zoom the map → Verify smooth interaction
+
+
+================================================================================
+SCREEN 2: SOS OFFLINE READY MODE
+================================================================================
+Location: Map tab → Tap Red SOS Pill Button → "SOS Offline Ready" state
+Perfect State for Screenshot:
+✓ Modal or overlay showing 3 SOS action buttons
+✓ "SOS Online" button (red) - for network-enabled emergency
+✓ "SOS Offline Ready" button (gray) - indicates no current connectivity
+✓ "Life-Threatening Emergency?" button (red with border)
+✓ All buttons are tappable and show clear affordance
+✓ Clear messaging about current connection state
+
+Why It Matters:
+- Shows offline-first design (critical safety feature)
+- Demonstrates app's ability to function without internet
+- Displays emergency packet creation and local caching
+- Shows user is prepared for satellite bridge activation
+
+How to Get Perfect State:
+1. From Map screen, tap the red SOS Pill Button
+2. Verify you see 3 button options
+3. If WiFi is enabled, disable WiFi or toggle Airplane Mode ON temporarily
+4. Re-tap SOS button; you should see "SOS Offline Ready" (gray)
+5. Screenshot showing all three buttons with offline state
+
+Reviewer Actions to Try:
+- Tap "SOS Online" while connected → Should show emergency sheet
+- Tap "SOS Offline Ready" → Should explain local storage of emergency data
+- Enable WiFi again → Button should change to "SOS Online"
+
+
+================================================================================
+SCREEN 3: MESSAGES TAB - COMMUNITY CONVERSATIONS
+================================================================================
+Location: Main "(tabs)" → "messages.tsx"
+Perfect State for Screenshot:
+✓ List of active conversations visible
+✓ Each message thread shows:
+   - Avatar/profile picture
+   - User name
+   - Last message preview
+   - Timestamp (e.g., "2 hours ago")
+   - Unread indicator (red dot or badge)
+✓ Search bar visible for finding conversations
+✓ New message compose button (pencil or "+" icon)
+✓ Threading shows conversation group and member count
+
+Why It Matters:
+- Demonstrates community engagement feature
+- Shows real-time messaging capability
+- Highlights safety aspect: nomads can communicate directly
+- UI/UX polish and design consistency
+
+How to Get Perfect State:
+1. Log in with apple@wildergo.com
+2. Tap "Messages" tab at bottom
+3. Wait for conversations to load
+4. Ensure at least 3-5 conversation threads are visible
+5. Screenshot showing clean list with clear thread information
+
+Reviewer Actions to Try:
+- Tap a conversation → Should open thread view with message history
+- Tap the compose button → Should open new conversation picker
+- Verify timestamps and unread indicators update
+
+
+================================================================================
+SCREEN 4: PROFILE / USER ACCOUNT TAB
+================================================================================
+Location: Main "(tabs)" → Profile/Account tab
+Perfect State for Screenshot:
+✓ User profile card visible showing:
+   - Profile picture/avatar
+   - User name (e.g., "Apple Reviewer")
+   - Nomadic style/bio
+   - Location or region
+   - Badges/achievements earned
+✓ Quick action buttons visible:
+   - Edit Profile
+   - Safety Settings
+   - Emergency Contacts
+   - Preferences
+✓ Settings section with:
+   - Privacy controls
+   - Notification toggles
+   - Location tracking settings
+   - Data & Safety options
+✓ Logout button at bottom
+
+Why It Matters:
+- Shows user data integrity and privacy controls
+- Demonstrates safety check-in and emergency contact features
+- Shows profile customization for nomadic identity
+- Displays all permission controls in one place
+
+How to Get Perfect State:
+1. Log in with apple@wildergo.com
+2. Tap the "Profile" or "Account" tab at bottom
+3. Wait for profile data to load
+4. Verify all sections render correctly
+5. Screenshot showing profile card and visible action buttons
+
+Reviewer Actions to Try:
+- Tap "Safety Settings" → Should show emergency contact options
+- Tap "Edit Profile" → Should allow name/bio changes
+- Scroll down to see all settings options
+- Verify Location Services toggle aligns with iOS Settings
+
+
+================================================================================
+SCREEN 5: ONBOARDING / WELCOME FLOW (Full User Journey)
+================================================================================
+Location: App launch → (onboarding)/ routes
+Perfect State for Screenshot:
+✓ Welcome screen visible with:
+   - WilderGo logo (animated if possible)
+   - Headline: "Explore Like You Belong Everywhere"
+   - Call-to-action buttons: "Create Account" / "Sign In"
+   - Optional: "Skip / Continue as Guest" option
+✓ Design elements:
+   - Nature-themed background (forest/wilderness imagery)
+   - Nature Background component with overlay
+   - GlassCard UI components for frosted glass effect
+   - Color scheme consistent with app theme
+✓ Navigation hierarchy clear and logical
+
+Why It Matters:
+- Shows first-time user experience (critical for app store review)
+- Demonstrates design system and visual polish
+- Shows app's natural/outdoor aesthetic
+- Validates accessibility and onboarding flow
+
+How to Get Perfect State:
+1. Delete app cache or install fresh app build
+2. Or force logout from profile settings, then relaunch
+3. Should land on Welcome/Onboarding screen
+4. Verify natural background imagery loads
+5. Screenshot showing welcome screen with call-to-action buttons
+
+Reviewer Actions to Try (Optional - uses test account bypass):
+- Tap "Create Account"
+- Enter "apple@wildergo.com" in email field
+- Verify instant navigation to main app (7-second bypass in action)
+- This validates the test account backdoor works as documented
+
+
+================================================================================
+BONUS: ACCESSIBILITY & SAFETY FEATURES TO VERIFY
+================================================================================
+
+During your review, please verify:
+
+✓ Location Permission Prompt (on first map access):
+  - Should show: "Allow WilderGo to access your location?"
+  - Privacy message should match APP_STORE_NOTES.txt
+
+✓ Camera Permission Prompt (on selfie verification):
+  - Should show permission request before camera access
+  - Users can deny and still use basic app features
+
+✓ Notification Permission Prompt:
+  - Should appear for safety check-in reminders
+  - Users can enable/disable from app settings
+
+✓ Offline Functionality:
+  - Enable Airplane Mode → SOS should still be accessible
+  - Messages may show "offline" indicator
+  - All cached data should remain visible
+
+✓ Crash Detection (iOS 17+):
+  - On supported devices, test emergency SOS during simulated crash
+  - Should trigger automatic notification
+  - User should be able to confirm or cancel
+
+✓ Text Size & Contrast:
+  - All text should meet WCAG AA contrast standards
+  - Dynamic Type support for accessibility (test with larger text)
+
+
+================================================================================
+TAKING SCREENSHOTS FOR APP STORE
+================================================================================
+
+Recommended Screenshot Sequence:
+1. Screen 1 (Map) - Hero shot showing main feature
+2. Screen 5 (Onboarding) - Show first-time experience
+3. Screen 3 (Messages) - Show community engagement
+4. Screen 2 (SOS) - Show safety feature in action
+5. Screen 4 (Profile) - Show privacy/settings
+
+File Naming Convention:
+- 1_map_wilderpoints.png (or 6.5" iPhone screenshot)
+- 2_onboarding_welcome.png
+- 3_messages_conversations.png
+- 4_sos_emergency_ready.png
+- 5_profile_safety.png
+
+Screenshot Dimensions:
+- iPhone 6.5" (Plus models): 1242 x 2688px
+- iPhone 6.1" (Pro models): 1170 x 2532px
+- iPhone 5.5" (SE): 1125 x 2436px
+
+Test on iPhone 15 Pro or latest simulator for best results.
+
+
+================================================================================
+SUPPORT
+================================================================================
+
+If you have questions during your review, please refer to:
+- APP_STORE_NOTES.txt (this submission's detailed notes)
+- In-app Help: Profile → Help & Support
+- Website: www.wildergo.com/support
+
+
+================================================================================
+END OF SCREENSHOT GUIDE
+================================================================================

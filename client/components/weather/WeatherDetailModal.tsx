@@ -7,7 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
+  Pressable,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
@@ -20,8 +20,6 @@ import {
   HourlyForecast,
   ForecastDay,
 } from "@/services/weather/weatherService";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface WeatherDetailModalProps {
   visible: boolean;
@@ -39,18 +37,18 @@ export const WeatherDetailModal: React.FC<WeatherDetailModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [forecast, setForecast] = useState<DetailedForecastData | null>(null);
 
-  useEffect(() => {
-    if (visible && latitude && longitude) {
-      fetchDetailedForecast();
-    }
-  }, [visible, latitude, longitude]);
-
-  const fetchDetailedForecast = async () => {
+  const fetchDetailedForecast = React.useCallback(async () => {
     setLoading(true);
     const data = await getDetailedForecast(latitude, longitude);
     setForecast(data);
     setLoading(false);
-  };
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    if (visible && latitude && longitude) {
+      fetchDetailedForecast();
+    }
+  }, [visible, latitude, longitude, fetchDetailedForecast]);
 
   const renderCurrentWeather = () => {
     if (!forecast?.current) return null;

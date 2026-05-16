@@ -16,6 +16,7 @@ import {
   Alert,
   Modal,
 } from "react-native";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -24,6 +25,12 @@ import { colors, typography, spacing, borderRadius } from "@/constants/theme";
 import { EmergencyCategory, EMERGENCY_CATEGORIES } from "./types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const isSOSOfflineEnabled = Boolean(
+  Constants.expoConfig?.extra?.isSOSOfflineEnabled ??
+    (Constants as any).manifest?.extra?.isSOSOfflineEnabled ??
+    (Constants as any).manifest2?.extra?.isSOSOfflineEnabled ??
+    false,
+);
 const HORIZONTAL_PADDING = spacing.lg;
 const CARD_GAP = 12;
 
@@ -368,22 +375,34 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.satelliteSOSButton}
-              onPress={() => Alert.alert(
-                'Feature Locked',
-                'Satellite Relay is currently locked. Help us reach 5,000 Nomads in Colorado to activate this region!'
-              )}
-              activeOpacity={0.6}
-            >
-              <View style={styles.satelliteSOSContent}>
-                <Ionicons name="radio" size={24} color={colors.bark[300]} />
-                <Text style={styles.satelliteSOSTitle}>Satellite SOS (Offline)</Text>
-                <Text style={styles.satelliteSOSSubtitle}>
-                  Apple satellite connectivity for offline users
-                </Text>
+            {isSOSOfflineEnabled ? (
+              <TouchableOpacity
+                style={styles.satelliteSOSButton}
+                onPress={() => Alert.alert(
+                  'Feature Locked',
+                  'Satellite Relay is currently locked. Help us reach 5,000 Nomads in Colorado to activate this region!'
+                )}
+                activeOpacity={0.6}
+              >
+                <View style={styles.satelliteSOSContent}>
+                  <Ionicons name="radio" size={24} color={colors.bark[300]} />
+                  <Text style={styles.satelliteSOSTitle}>Satellite SOS (Offline)</Text>
+                  <Text style={styles.satelliteSOSSubtitle}>
+                    Apple satellite connectivity for offline users
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.satelliteSOSButton, styles.satelliteSOSDisabled]}>
+                <View style={styles.satelliteSOSContent}>
+                  <Ionicons name="radio" size={24} color={colors.bark[300]} />
+                  <Text style={styles.satelliteSOSTitle}>Satellite SOS (Offline)</Text>
+                  <Text style={styles.satelliteSOSSubtitle}>
+                    Coming soon — currently disabled for review
+                  </Text>
+                </View>
               </View>
-            </TouchableOpacity>
+            )}
           </View>
         ) : (
           <>
@@ -1244,6 +1263,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.bark[200],
     opacity: 0.6,
+  },
+  satelliteSOSDisabled: {
+    backgroundColor: colors.bark[50],
+    borderColor: colors.bark[200],
   },
   satelliteSOSContent: {
     padding: spacing.lg,

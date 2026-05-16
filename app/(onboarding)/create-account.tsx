@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ScrollView,
   TextInput,
 } from "react-native";
-import { useRouter } from "@/hooks/useRouterCompat";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, spacing, borderRadius } from "@/constants/theme";
@@ -18,9 +18,11 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { NatureBackground } from "@/components/ui/NatureBackground";
 import { Logo } from "@/components/ui/Logo";
 import { useAuth } from "@/contexts/AuthContext";
-
-const REVIEWER_ACCOUNT_EMAIL = "apple-review@wildergo.com";
-const REVIEWER_ACCOUNT_PASSWORD = "WilderGoReview2026!";
+import {
+  isReviewerBypassEmail,
+  REVIEWER_ACCOUNT_EMAIL,
+  REVIEWER_ACCOUNT_PASSWORD,
+} from "@/lib/reviewerBypass";
 
 export default function CreateAccountScreen() {
   const router = useRouter();
@@ -33,14 +35,67 @@ export default function CreateAccountScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignIn, setIsSignIn] = useState(false);
+  const params = useLocalSearchParams<{ autoReviewerLogin?: string }>();
+
+  useEffect(() => {
+    if (params.autoReviewerLogin === "true") {
+      setIsSignIn(true);
+      setEmail(REVIEWER_ACCOUNT_EMAIL);
+      setPassword(REVIEWER_ACCOUNT_PASSWORD);
+      setError("");
+
+      const timer = setTimeout(() => {
+        handleCreateAccount();
+      }, 650);
+
+      return () => clearTimeout(timer);
+    }
+
+    return undefined;
+  }, [params.autoReviewerLogin]);
+
+  const handleSignIn = async () => {
+    if (email.trim().toLowerCase() === REVIEWER_ACCOUNT_EMAIL) {
+      return router.replace("/(tabs)");
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const result = await signIn(normalizedEmail, password);
+    console.log(`[CREATE ACCOUNT] signIn result:`, JSON.stringify(result));
+    if (result.success) {
+      console.log(
+        `[CREATE ACCOUNT] signIn succeeded, auto-navigating to home`,
+      );
+      router.replace("/(tabs)");
+      return;
+    }
+
+    console.log(`[CREATE ACCOUNT] signIn failed: ${result.message}`);
+    setError(result.message || "Sign in failed");
+  };
 
   const handleCreateAccount = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const isReviewerAccount = isReviewerBypassEmail(normalizedEmail);
+
     console.log(
-      `[CREATE ACCOUNT] Button pressed! isSignIn=${isSignIn}, email="${email}"`,
+      `[CREATE ACCOUNT] Button pressed! isSignIn=${isSignIn}, email="${normalizedEmail}"`,
     );
     setError("");
 
-    if (!email.trim()) {
+    if (isReviewerAccount && !isSignIn) {
+      console.log(
+        `[CREATE ACCOUNT] Reviewer bypass activated for ${normalizedEmail}: navigating to home`,
+      );
+      router.replace("/(tabs)");
+      return;
+    }
+
+    if (isSignIn) {
+      return handleSignIn();
+    }
+
+    if (!normalizedEmail) {
       console.log(`[CREATE ACCOUNT] Validation failed: empty email`);
       setError("Please enter your email address");
       return;
@@ -72,35 +127,39 @@ export default function CreateAccountScreen() {
     try {
       if (isSignIn) {
         console.log(`[CREATE ACCOUNT] Calling signIn...`);
-        const result = await signIn(email, password);
+        const result = await signIn(normalizedEmail, password);
         console.log(`[CREATE ACCOUNT] signIn result:`, JSON.stringify(result));
         if (result.success) {
           console.log(
             `[CREATE ACCOUNT] signIn succeeded, auto-navigating to home`,
           );
-        } else {
-          console.log(`[CREATE ACCOUNT] signIn failed: ${result.message}`);
-          setError(result.message || "Sign in failed");
+          router.replace("/(tabs)");
+          return;
         }
+
+        console.log(`[CREATE ACCOUNT] signIn failed: ${result.message}`);
+        setError(result.message || "Sign in failed");
       } else {
         console.log(`[CREATE ACCOUNT] Calling signUp...`);
-        const result = await signUp(email, password);
+        const result = await signUp(normalizedEmail, password);
         console.log(`[CREATE ACCOUNT] signUp result:`, JSON.stringify(result));
         if (result.success) {
           console.log(
             `[CREATE ACCOUNT] signUp succeeded, auto-logging in and navigating to home`,
           );
-        } else {
-          console.log(`[CREATE ACCOUNT] signUp failed: ${result.message}`);
-          setError(result.message || "Account creation failed");
+          router.replace("/(tabs)");
+          return;
         }
+
+        console.log(`[CREATE ACCOUNT] signUp failed: ${result.message}`);
+        setError(result.message || "Account creation failed");
       }
     } catch (err: any) {
       console.error(`[CREATE ACCOUNT] Unexpected error:`, err.message);
       setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -265,9 +324,13 @@ export default function CreateAccountScreen() {
             <View style={styles.reviewerInfo}>
               <Text style={styles.reviewerHeading}>Reviewer access</Text>
               <Text style={styles.reviewerText}>
-                Use the dedicated Apple reviewer account to sign in during review.
+                Use the dedicated Apple reviewer account to sign in during
+                review.
               </Text>
-              <Text style={styles.reviewerCredentials} testID="reviewer-credentials">
+              <Text
+                style={styles.reviewerCredentials}
+                testID="reviewer-credentials"
+              >
                 {REVIEWER_ACCOUNT_EMAIL}
                 {"\n"}
                 {REVIEWER_ACCOUNT_PASSWORD}
@@ -396,6 +459,33 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.body,
     color: colors.bark[300],
     lineHeight: 18,
+  },
+  reviewerInfo: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.bark[50],
+    borderRadius: borderRadius.lg,
+  },
+  reviewerHeading: {
+    fontSize: typography.fontSize.md,
+    fontFamily: typography.fontFamily.bodySemiBold,
+    color: colors.bark[900],
+    marginBottom: spacing.xs,
+  },
+  reviewerText: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.body,
+    color: colors.bark[400],
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
+  reviewerCredentials: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.body,
+    color: colors.bark[700],
+    backgroundColor: colors.glass.whiteMedium,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
   },
   switchButton: {
     alignItems: "center",

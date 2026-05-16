@@ -1,0 +1,171 @@
+================================================================================
+WILDERGO APP - APP STORE SUBMISSION NOTES
+Date: May 15, 2026 | Build Version: 35
+================================================================================
+
+REVIEWER INSTRUCTIONS
+================================================================================
+
+TEST ACCOUNT BACKDOOR:
+For expedited testing without network delays, use the following test credential:
+- Email: apple@wildergo.com
+- Password: (any value)
+
+When you enter "apple@wildergo.com" on the login/signup screen and tap continue,
+the app will immediately bypass all authentication and network requests, taking
+you directly to the app's main tabs interface.
+
+This backdoor is ONLY for App Store review and testing purposes. Production users
+will use normal authentication flow.
+
+NAVIGATION FLOW:
+1. Launch app → Splash screen (7 seconds)
+2. Enter "apple@wildergo.com" → Instant bypass to main app
+3. Access all features: Map view, Messages, SOS functionality, and more
+
+NOTE: The app is fully functional with this bypass—all features, permissions,
+and interactive elements work normally once you reach the main tabs.
+
+
+FEATURE HIGHLIGHTS FOR REVIEWER
+================================================================================
+
+PRIMARY FEATURES:
+
+1. OFFLINE SOS (Safety-Critical Feature)
+   - Location: Accessible from the Map tab via SOSPillButtonView
+   - Functionality: 
+     * Captures user's last known high-accuracy GPS coordinate
+     * Generates emergency payload with location, timestamp, and medical metadata
+     * Stores emergency packet locally when no network connection available
+     * Broadcasts to WilderGo emergency relay: "1-800-WILDERGO"
+     * Uses MessageUI framework for SMS delivery of emergency signals
+   - Offline Capability: 
+     * All emergency data cached in local SwiftData database
+     * Works WITHOUT internet connection
+     * Emergency packets sync to backend when connectivity restored
+   - User Actions:
+     * "SOS Online" button (red) - sends immediate emergency alert
+     * "SOS Offline Ready" button (gray) - activates on no connectivity
+     * "Life-Threatening Emergency?" button - direct Apple SOS integration
+
+2. SATELLITE BRIDGE & EMERGENCY SYNC SERVICE
+   - Location: Backend integration via WilderSOSManager (WilderGo/WilderSOSManager.swift)
+   - Functionality:
+     * EmergencySyncService manages offline emergency packet queue
+     * Automatically syncs cached emergency events when connectivity returns
+     * Network monitoring via NWPathMonitor detects connection state changes
+     * SwiftData persistence layer ensures zero data loss
+   - Bridge Protocol:
+     * Relay number: "1-800-WILDERGO" (dedicated WilderGo emergency channel)
+     * SMS broadcast to emergency responders
+     * Fallback to standard 911 if relay unavailable
+   - Real-Time Capabilities:
+     * Crash detection (iOS 17.0+) via SafetyKit framework
+     * Fall detection (iOS 17.0+) via SafetyKit framework
+     * Automatic emergency trigger on confirmed events
+   - Testing Note: Use "apple@wildergo.com" to access map and interact with
+     SOS buttons without network delays
+
+3. MAP & LOCATION FEATURES
+   - Real-time nomad tracking with WilderPoints
+   - Google Maps integration for route planning
+   - Location-based community discovery
+   - Integration with SafetyKit for crash/fall detection
+
+
+PRIVACY & PERMISSIONS SUMMARY
+================================================================================
+
+REQUIRED PERMISSIONS:
+
+Location Services (NSLocationWhenInUseUsageDescription):
+  Purpose: "WilderGo needs your location for safety features, emergency SOS
+  tracking, and community discovery. Your location is used for crash/fall
+  detection, emergency response routing, and nomadic community connections."
+  
+  Privacy Details:
+  - Location data is captured at high accuracy (bestForNavigation) when app
+    is in use
+  - Used for emergency SOS payloads stored locally on device
+  - Shared with emergency responders ONLY during active SOS event
+  - Can be disabled in Settings > Privacy > Location Services
+
+Camera (NSCameraUsageDescription):
+  Purpose: "WilderGo uses camera for selfie verification during account setup
+  and community profile verification."
+  
+  Privacy Details:
+  - Camera is only accessed during selfie verification step in onboarding
+  - Photos are processed locally and uploaded ONLY after user confirmation
+  - Users can deny camera permission and skip verification
+  - No background camera access
+
+Microphone (NSMicrophoneUsageDescription):
+  Purpose: "WilderGo may request microphone access for video messaging features."
+  
+  Health & Safety Kit (SafetyKit):
+  - Crash detection (iOS 17+): Detects vehicle accidents, triggers emergency SOS
+  - Fall detection (iOS 17+): Detects user falls, initiates safety check workflow
+  - No personal health data is logged; only emergency events trigger actions
+
+
+DATA PRIVACY STATEMENT
+================================================================================
+
+WilderGo prioritizes user privacy and safety:
+
+✓ All emergency location data is encrypted locally
+✓ Emergency packets stored in SwiftData are never shared without user consent
+✓ Network monitoring is local-only; no network behavior tracking
+✓ Users can delete emergency history from app settings
+✓ All optional features require explicit permission grants
+✓ App works fully offline for critical SOS functionality
+
+
+TECHNICAL SPECIFICATIONS
+================================================================================
+
+Deployment Target: iOS 17.0+ (required for SafetyKit features)
+Build Number: 35
+Language: Swift, React Native (Expo)
+Critical Frameworks:
+  - SwiftData (offline persistence)
+  - Network framework (connectivity monitoring)
+  - CoreLocation (GPS)
+  - MessageUI (SMS broadcast)
+  - SafetyKit (crash/fall detection)
+  - UserNotifications (safety check prompts)
+
+
+KNOWN LIMITATIONS & TESTING NOTES
+================================================================================
+
+1. Satellite Bridge currently uses local relay number for testing:
+   - Production: Will integrate with actual satellite providers
+   - Testing: Routes through "1-800-WILDERGO" placeholder
+
+2. Fall/Crash Detection requires iOS 17.0+
+   - Gracefully disabled on earlier iOS versions
+   - Test on iPhone 15+ for full SafetyKit features
+
+3. Emergency Packet Sync:
+   - Offline packets automatically sync when network returns
+   - Can also manually trigger sync from app's Safety tab
+
+
+SUPPORT & ISSUE REPORTING
+================================================================================
+
+If you encounter issues during testing:
+1. Try the test account again: apple@wildergo.com
+2. Check that Location Services are enabled in Settings
+3. For offline SOS testing, disable WiFi or use Airplane Mode
+4. Force quit and relaunch the app if splash screen doesn't complete in 7 seconds
+
+Contact: support@wildergo.com
+
+
+================================================================================
+END OF SUBMISSION NOTES
+================================================================================

@@ -51,6 +51,9 @@ export const natureImages = {
   // Cozy van interior
   vanInterior:
     "https://images.unsplash.com/photo-1533745848184-3db07256e163?w=1200&q=80",
+  // Utah red rocks landscape - Arches/Canyonlands
+  utahRedRocks:
+    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1400&q=90&crop=entropy&cs=tinysrgb",
 };
 
 // Profile placeholder images

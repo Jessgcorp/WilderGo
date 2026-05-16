@@ -34,13 +34,13 @@ export const Logo: React.FC<LogoProps> = ({
   const getTaglineSize = () => {
     switch (size) {
       case "small":
-        return 10;
-      case "medium":
-        return 12;
-      case "large":
         return 14;
+      case "medium":
+        return 18;
+      case "large":
+        return 24;
       case "hero":
-        return 16;
+        return 32;
     }
   };
 
@@ -68,7 +68,7 @@ export const Logo: React.FC<LogoProps> = ({
             styles.tagline,
             {
               fontSize: getTaglineSize(),
-              color: variant === "light" ? colors.bark[300] : colors.bark[500],
+              color: variant === "light" ? colors.text.inverse : colors.bark[800],
             },
           ]}
         >
@@ -89,10 +89,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   tagline: {
-    fontFamily: typography.fontFamily.body,
-    marginTop: spacing.xs,
+    fontFamily: typography.fontFamily.bodySemiBold,
+    marginTop: spacing.sm,
     letterSpacing: typography.letterSpacing.wide,
     fontStyle: "italic",
+    lineHeight: 40,
   },
 });
 

@@ -11,8 +11,15 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.wildergo.app",
-      "buildNumber": "34",
+      "buildNumber": "42",
+      "deploymentTarget": "15.1",
       "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "WilderGo uses your location to provide real-time wilderness safety mapping and to relay emergency SOS signals via satellite even when the app is backgrounded.",
+        "NSLocationWhenInUseUsageDescription": "WilderGo uses your location to provide real-time wilderness safety mapping and to relay emergency SOS signals via satellite even when the app is backgrounded.",
+        "NSLocationAlwaysUsageDescription": "WilderGo uses your location to provide real-time wilderness safety mapping and to relay emergency SOS signals via satellite even when the app is backgrounded.",
+        "Privacy - AI Usage Description": "Route optimization is performed on-device to ensure offline privacy."
+      },
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -67,7 +74,8 @@
       "eas": {
         "projectId": "2817ea3f-7edb-47e1-a939-326cd3881b44"
       },
-      "apiBaseUrl": "http://192.168.0.104:5000"
+      "apiBaseUrl": "https://aa60d38e-336a-4c6c-8c7a-2e8f4ae13a3f-00-37dgmtff0mvif.picard.replit.dev",
+      "isSOSOfflineEnabled": false
     }
   }
 }

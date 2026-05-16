@@ -99,19 +99,21 @@ export const getRoadRisk = async (
 
     const weatherResults = await Promise.all(weatherPromises);
 
-    const conditions: RoadCondition[] = weatherResults.map((weather, index) => {
-      const point = samplePoints[index];
-      const timestamp = Math.floor(
-        calculateEstimatedTravelTime(
-          startTime,
-          durationMinutes,
-          index,
-          samplePoints.length,
-        ) / 1000,
-      );
+    const conditions: RoadCondition[] = weatherResults.map(
+      (weather: WeatherData, index: number) => {
+        const point = samplePoints[index];
+        const timestamp = Math.floor(
+          calculateEstimatedTravelTime(
+            startTime,
+            durationMinutes,
+            index,
+            samplePoints.length,
+          ) / 1000,
+        );
 
-      return createConditionFromWeather(weather, point, timestamp);
-    });
+        return createConditionFromWeather(weather, point, timestamp);
+      },
+    );
 
     const { riskLevel, riskScore, generatedWarnings } = analyzeRoadRisk(
       conditions,
@@ -194,86 +196,6 @@ const sampleRoutePoints = (
   }
 
   return sampled;
-};
-
-const parseRoadRiskResponse = (
-  data: any,
-  requestPoints: RoadRiskPoint[],
-): RoadRiskData => {
-  const conditions: RoadCondition[] = [];
-  const alerts: NationalAlert[] = [];
-  const warnings: string[] = [];
-
-  if (data.road_risk && Array.isArray(data.road_risk)) {
-    data.road_risk.forEach((point: any, index: number) => {
-      const weather = point.weather || {};
-      const requestPoint = requestPoints[index] || {
-        latitude: 0,
-        longitude: 0,
-        timestamp: 0,
-      };
-
-      const condition: RoadCondition = {
-        latitude: requestPoint.latitude,
-        longitude: requestPoint.longitude,
-        timestamp: point.dt || requestPoint.timestamp,
-        temp: kelvinToFahrenheit(weather.temp || 273),
-        feelsLike: kelvinToFahrenheit(
-          weather.feels_like || weather.temp || 273,
-        ),
-        dewPoint: kelvinToFahrenheit(weather.dew_point || 273),
-        windSpeed: metersPerSecToMph(weather.wind_speed || 0),
-        windGust: weather.wind_gust
-          ? metersPerSecToMph(weather.wind_gust)
-          : undefined,
-        precipitation: weather.precipitation?.value || 0,
-        humidity: weather.humidity || 0,
-        visibility: weather.visibility || 10000,
-        roadSurfaceTemp: weather.road_surface_temp
-          ? kelvinToFahrenheit(weather.road_surface_temp)
-          : undefined,
-        blackIceRisk: point.road_risk?.state === "black_ice",
-        condition: getWeatherConditionFromData(weather),
-      };
-
-      conditions.push(condition);
-
-      if (point.alerts && Array.isArray(point.alerts)) {
-        point.alerts.forEach((alert: any) => {
-          const existingAlert = alerts.find(
-            (a) =>
-              a.event === alert.event && a.senderName === alert.sender_name,
-          );
-
-          if (!existingAlert) {
-            alerts.push({
-              senderName: alert.sender_name || "National Weather Service",
-              event: alert.event || "Weather Alert",
-              description: alert.description || "",
-              severity: mapAlertSeverity(alert.severity),
-              start: alert.start || requestPoint.timestamp,
-              end: alert.end || requestPoint.timestamp + 3600,
-            });
-          }
-        });
-      }
-    });
-  }
-
-  const { riskLevel, riskScore, generatedWarnings } = analyzeRoadRisk(
-    conditions,
-    alerts,
-  );
-  warnings.push(...generatedWarnings);
-
-  return {
-    success: true,
-    conditions,
-    alerts,
-    overallRiskLevel: riskLevel,
-    riskScore,
-    warnings,
-  };
 };
 
 const createFallbackRoadRisk = (
@@ -415,36 +337,6 @@ export const getRoadRiskSummary = (
     riskLevel: overallRiskLevel,
     riskScore,
   };
-};
-
-const kelvinToFahrenheit = (kelvin: number): number => {
-  return Math.round(((kelvin - 273.15) * 9) / 5 + 32);
-};
-
-const metersPerSecToMph = (mps: number): number => {
-  return Math.round(mps * 2.237);
-};
-
-const mapAlertSeverity = (
-  severity: string,
-): "Minor" | "Moderate" | "Severe" | "Extreme" => {
-  const severityMap: {
-    [key: string]: "Minor" | "Moderate" | "Severe" | "Extreme";
-  } = {
-    minor: "Minor",
-    moderate: "Moderate",
-    severe: "Severe",
-    extreme: "Extreme",
-  };
-  return severityMap[severity?.toLowerCase()] || "Minor";
-};
-
-const getWeatherConditionFromData = (weather: any): string => {
-  if (weather.precipitation?.value > 5) return "Heavy Rain";
-  if (weather.precipitation?.value > 0) return "Rain";
-  if (weather.visibility < 1000) return "Fog";
-  if (weather.wind_speed > 15) return "Windy";
-  return "Clear";
 };
 
 export const formatRoadRiskForDisplay = (

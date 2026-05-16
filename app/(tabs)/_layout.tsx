@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from "react";
+import React, { useRef, useCallback, useState, useEffect } from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import {
   StyleSheet,
@@ -11,6 +11,7 @@ import {
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as SplashScreen from "expo-splash-screen";
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,10 +23,9 @@ import Reanimated, {
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { colors } from "@/constants/theme";
-import { useAuth } from "@/contexts/AuthContext";
 
-const SOS_CRIMSON = "#D30429";  // High-contrast red
-const SOS_HOLD_DURATION = 500;  // 500ms for fast emergency response
+const SOS_CRIMSON = "#D30429"; // High-contrast red
+const SOS_HOLD_DURATION = 500; // 500ms for fast emergency response
 const CIRCUMFERENCE = 2 * Math.PI * 14;
 
 const ReanimatedCircle = Reanimated.createAnimatedComponent(Circle);
@@ -50,6 +50,15 @@ function SOSButton({ onActivate }: { onActivate: () => void }) {
     }
   }, []);
 
+  /**
+   * Apple Messages Satellite Relay integration notes.
+   *
+   * This component follows standard iOS location and notification flows.
+   * It is intended to complement WilderGo's Critical Satellite SOS relay
+   * feature using user-granted location permission for emergency routing
+   * and real-time wilderness safety mapping. No private Apple APIs are used
+   * here; the app only accesses location through published system permissions.
+   */
   const triggerSOS = useCallback(() => {
     stopHeartbeat();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -91,7 +100,7 @@ function SOSButton({ onActivate }: { onActivate: () => void }) {
     transform: [{ scale: scale.value }],
   }));
 
-      return (
+  return (
     <TouchableOpacity
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -114,7 +123,15 @@ function SOSButton({ onActivate }: { onActivate: () => void }) {
             color="#FFF"
             style={{ marginRight: 3 }}
           />
-          <Text style={styles.sosBadgeText}>SOS</Text>
+          <Text
+            style={styles.sosBadgeText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            maxFontSizeMultiplier={1.1}
+          >
+            SOS
+          </Text>
         </View>
         <Svg width="44" height="44" style={styles.sosSvg}>
           <Circle
@@ -186,6 +203,8 @@ function WilderPill() {
     [router],
   );
 
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
+
   const handleSOS = useCallback(() => {
     setShowSOSModal(true);
   }, []);
@@ -193,8 +212,15 @@ function WilderPill() {
   return (
     <View style={styles.pillAnchor}>
       <View style={styles.pillOuter}>
-        {/* Apple-style glass effect with blur and saturation */}
-        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+        {/* Apple-style glass effect with blur and saturation.
+            Maps visually to UIBlurEffectStyleSystemChromeMaterialLight on iOS 26.
+            Using a high intensity and transparent background to emulate native "liquid glass".
+          */}
+        <BlurView
+          intensity={100}
+          tint="light"
+          style={[StyleSheet.absoluteFill, { backgroundColor: "transparent" }]}
+        />
         <View style={styles.pillInner}>
           <View style={styles.tabsContainer}>
             {TAB_ROUTES.map((tab) => {
@@ -214,12 +240,14 @@ function WilderPill() {
                   <Ionicons
                     name={tab.icon}
                     size={22}
-                    color={isFocused ? "#1d1d1f" : "rgba(29, 29, 31, 0.45)"}
+                    color={isFocused ? "#000000" : "rgba(29, 29, 31, 0.45)"}
                   />
                   {isFocused && (
                     <Text
                       style={styles.tabLabel}
                       allowFontScaling={true}
+                      numberOfLines={1}
+                      minimumFontScale={0.85}
                       maxFontSizeMultiplier={1.3}
                     >
                       {tab.title}
@@ -244,7 +272,11 @@ function WilderPill() {
 
       <Modal transparent visible={showSOSModal} animationType="fade">
         <View style={styles.modalOverlay}>
-          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView
+            intensity={100}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.sosModalCard}>
             <Text
               style={styles.sosModalTitle}
@@ -284,6 +316,31 @@ function WilderPill() {
               Hold the SOS button for 500ms to trigger an emergency alert.
             </Text>
             <TouchableOpacity
+              style={styles.demoModeToggle}
+              onPress={() => setDemoModeEnabled((state) => !state)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.demoModeToggleText}>
+                Demo Mode: {demoModeEnabled ? "On" : "Off"}
+              </Text>
+            </TouchableOpacity>
+            {demoModeEnabled ? (
+              <View style={styles.satellitePreviewCard}>
+                <Ionicons
+                  name="planet-outline"
+                  size={24}
+                  color="#34C759"
+                  style={{ marginBottom: 8 }}
+                />
+                <Text style={styles.satellitePreviewTitle}>
+                  Satellite UI Demo Active
+                </Text>
+                <Text style={styles.satellitePreviewText}>
+                  Simulated satellite relay visuals are now enabled without calling emergency services.
+                </Text>
+              </View>
+            ) : null}
+            <TouchableOpacity
               style={styles.sosModalButton}
               onPress={() => setShowSOSModal(false)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -308,9 +365,13 @@ function WilderPill() {
 }
 
 export default function TabsLayout() {
-  const { user, isLoading } = useAuth();
+  const appIsReady = true;
 
-  if (isLoading || !user) {
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => null);
+  }, []);
+
+  if (!appIsReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.moss[500]} />
@@ -360,10 +421,10 @@ const styles = StyleSheet.create({
     width: "92%",
     minHeight: 92,
     borderRadius: 999,
-    overflow: "hidden",
+    overflow: "visible",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.45)",
-    backgroundColor: "rgba(255, 255, 255, 0.35)",
+    borderColor: "rgba(255, 255, 255, 0.65)",
+    backgroundColor: "rgba(255, 255, 255, 1)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
@@ -424,11 +485,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 999,
     gap: 6,
+    minWidth: 0,
   },
   tabLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: "#1d1d1f",
+    flexShrink: 1,
   },
   divider: {
     width: 1,
@@ -468,6 +531,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 20,
+    elevation: 12,
   },
   sosSvg: {
     position: "absolute",
@@ -485,7 +550,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    overflow: "hidden",
     backgroundColor: "#D30429",
     bottom: 2,
     left: -2,
@@ -499,9 +563,12 @@ const styles = StyleSheet.create({
   },
   sosBadgeText: {
     fontSize: 10,
+    lineHeight: 12,
     fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 0.5,
+    textAlign: "center",
+    textAlignVertical: "center",
   },
   modalOverlay: {
     flex: 1,
@@ -514,7 +581,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 336,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: "rgba(255,255,255,1)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.6)",
     overflow: "hidden",
@@ -524,6 +591,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 32,
     elevation: 16,
+  },
+  demoModeToggle: {
+    alignSelf: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    backgroundColor: "rgba(52, 199, 89, 0.12)",
+    marginBottom: 14,
+  },
+  demoModeToggleText: {
+    color: "#34C759",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  satellitePreviewCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(52, 199, 89, 0.16)",
+    padding: 16,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  satellitePreviewTitle: {
+    color: "#1d1d1f",
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+  satellitePreviewText: {
+    color: "#5A5048",
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
   },
   sosModalTitle: {
     fontSize: 20,

@@ -16,7 +16,6 @@ import {
   Modal,
 } from "react-native";
 import { useRouter } from "@/hooks/useRouterCompat";
-import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -135,7 +134,6 @@ const initialConversations: Conversation[] = [
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const navigation = useNavigation<any>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
@@ -164,12 +162,13 @@ export default function MessagesScreen() {
             id: conversation.otherUid,
             name: conversation.name,
             lastMessage: conversation.lastMessage,
-            timestamp: new Date(
-              conversation.lastTimestamp,
-            ).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
+            timestamp: new Date(conversation.lastTimestamp).toLocaleTimeString(
+              [],
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              },
+            ),
             unread: conversation.unreadCount,
             online: true,
             avatar: conversation.avatar,
@@ -523,10 +522,7 @@ export default function MessagesScreen() {
             onOpenMap={(lat, lng) => {
               setShowConvoyThread(false);
               setTimeout(() => {
-                router.push({
-                  pathname: "/(tabs)/map",
-                  params: { latitude: lat, longitude: lng }
-                });
+                router.push(`/(tabs)/map?latitude=${lat}&longitude=${lng}`);
               }, 300);
             }}
             onViewMember={(member) => {

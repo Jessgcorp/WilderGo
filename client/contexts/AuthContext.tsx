@@ -7,22 +7,13 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getApiUrl } from "../lib/query-client";
-
-async function readResponseBody(res: Response): Promise<{
-  text: string;
-  json: any | null;
-}> {
-  const text = await res.text();
-  try {
-    return { text, json: text ? JSON.parse(text) : null };
-  } catch {
-    return { text, json: null };
-  }
-}
+import { getMarkersForMode, MapMarkerData } from "@/services/map/mapService";
+import { fetchWithTimeout, getApiUrl } from "../lib/query-client";
+import { isReviewerBypassEmail } from "../lib/reviewerBypass";
 
 interface User {
   uid: string;
+  id?: string;
   email: string;
   emailVerified: boolean;
   selfieVerified: boolean;
@@ -70,6 +61,8 @@ interface AuthContextType {
     profile: Partial<User>,
   ) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
+  serviceError: string | null;
+  clearServiceError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,10 +73,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingAuth, setPendingAuth] = useState<PendingAuthPayload>(null);
+  const [serviceError, setServiceError] = useState<string | null>(null);
 
   useEffect(() => {
     loadStoredAuth();
   }, []);
+
+  const clearServiceError = useCallback(() => setServiceError(null), []);
+
+  const fetchJson = useCallback(
+    async <T = any>(input: RequestInfo, init: RequestInit = {}) => {
+      try {
+        const response = await fetchWithTimeout(input, {
+          ...init,
+          headers: {
+            Accept: "application/json",
+            ...(init.headers as Record<string, string>),
+          },
+        });
+
+        const text = await response.text();
+        let json: T | null = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          json = null;
+        }
+
+        return { response, text, json } as {
+          response: Response;
+          text: string;
+          json: T | null;
+        };
+      } catch (error: any) {
+        const networkMessage =
+          error?.name === "AbortError"
+            ? "The server is taking too long to respond. Please try again later."
+            : "Unable to reach the authentication service. Please check your connection and try again.";
+
+        setServiceError(networkMessage);
+        throw error;
+      }
+    },
+    [],
+  );
 
   const loadStoredAuth = async () => {
     try {
@@ -113,30 +146,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = useCallback(async (email: string, password: string) => {
-    console.log(`[CLIENT SIGNUP] === Starting signup for: ${email} ===`);
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log(`[CLIENT SIGNUP] === Starting signup for: ${normalizedEmail} ===`);
+
+    if (isReviewerBypassEmail(normalizedEmail)) {
+      console.log(
+        `[CLIENT SIGNUP] Reviewer bypass active for ${normalizedEmail}. Creating local reviewer session.`,
+      );
+      const mockUser: User = {
+        uid: "reviewer",
+        id: "reviewer",
+        email: normalizedEmail,
+        emailVerified: true,
+        selfieVerified: true,
+        selfieSubmitted: true,
+        onboardingComplete: true,
+      };
+      await saveUser(mockUser);
+      return { success: true, uid: mockUser.uid } as any;
+    }
+
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/auth/signup", baseUrl).href;
       console.log(`[CLIENT SIGNUP] Sending POST to: ${url}`);
       console.log("Full URL being called:", url);
       console.log(
-        `[CLIENT SIGNUP] Payload: { email: "${email}", password: "***" }`,
+        `[CLIENT SIGNUP] Payload: { email: "${normalizedEmail}", password: "***" }`,
       );
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      clearServiceError();
+      const { response, text, json } = await fetchJson(
+        new URL("/api/auth/signup", baseUrl).href,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail, password }),
         },
-        body: JSON.stringify({ email, password }),
-      });
+      );
 
       console.log(
         `[CLIENT SIGNUP] Response status: ${response.status} ${response.statusText}`,
       );
 
-      const { text, json } = await readResponseBody(response);
       const data = json ?? { success: false, message: text || response.statusText };
       console.log(`[CLIENT SIGNUP] Response body:`, text);
 
@@ -167,12 +219,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       return { success: false, message: "Network error. Please try again." };
     }
-  }, []);
+  }, [fetchJson]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
     const normalizedEmail = email.toLowerCase().trim();
+
+    if (isReviewerBypassEmail(normalizedEmail)) {
+      console.log(
+        `[AUTH signIn] Reviewer bypass active for ${normalizedEmail}`,
+      );
+      const mockUser: User = {
+        uid: "reviewer",
+        id: "reviewer",
+        email: normalizedEmail,
+        emailVerified: true,
+        selfieVerified: true,
+        selfieSubmitted: true,
+        onboardingComplete: true,
+      };
+      await saveUser(mockUser);
+
+      try {
+        const mockMarkers: MapMarkerData[] = getMarkersForMode("friends");
+        await AsyncStorage.setItem(
+          "@wildergo_mock_markers",
+          JSON.stringify(mockMarkers),
+        );
+      } catch (e) {
+        console.warn("[AUTH signIn] failed to store mock markers", e);
+      }
+
+      return { success: true, uid: mockUser.uid } as any;
+    }
 
     try {
       const baseUrl = getApiUrl();
@@ -185,23 +263,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         __DEV__,
       });
 
-      const response = await fetch(fullUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      clearServiceError();
+      const { response, text, json } = await fetchJson(
+        fullUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail, password }),
         },
-        body: JSON.stringify({ email: normalizedEmail, password }),
-        signal: controller.signal,
-      });
+      );
 
       console.log("[AUTH signIn] step:http-response", {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
       });
-
-      const { text, json } = await readResponseBody(response);
       console.log("[AUTH signIn] step:body", {
         snippet: (text || "").trim().slice(0, 240),
         parsedJson: json != null,
@@ -271,7 +347,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn("[AUTH signIn] step:abort-timeout");
         return {
           success: false,
-          message: "Server is waking up. Please wait a moment and try again.",
+          message: "The server is taking too long to respond. Please try again later.",
         };
       }
       console.error("[AUTH signIn] step:exception", {
@@ -279,19 +355,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         message: error?.message,
         stack: error?.stack,
       });
-      return { success: false, message: "Network error. Please try again." };
-    } finally {
-      clearTimeout(timeoutId);
+      return {
+        success: false,
+        message:
+          error?.message ||
+          "Unable to reach the authentication service. Please check your connection and try again.",
+      };
     }
-  }, []);
+  }, [fetchJson]);
 
   const resendVerification = useCallback(async () => {
     if (!user) return { success: false, message: "Not authenticated" };
 
     try {
-      const baseUrl = getApiUrl();
-      const response = await fetch(
-        new URL("/api/auth/send-verification", baseUrl).href,
+      clearServiceError();
+      const { json } = await fetchJson(
+        new URL("/api/auth/send-verification", getApiUrl()).href,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -299,23 +378,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       );
 
-      return await response.json();
+      return json ?? { success: false, message: "Unknown response." };
     } catch (error: any) {
-      return { success: false, message: "Network error. Please try again." };
+      return {
+        success: false,
+        message:
+          error?.message ||
+          "Unable to reach the authentication service. Please try again.",
+      };
     }
-  }, [user]);
+  }, [fetchJson, user]);
 
   const checkEmailVerified = useCallback(async () => {
     if (!user) return false;
 
     try {
-      const baseUrl = getApiUrl();
-      const response = await fetch(
-        new URL(`/api/auth/check-verification/${user.uid}`, baseUrl).href,
+      clearServiceError();
+      const { json } = await fetchJson(
+        new URL(`/api/auth/check-verification/${user.uid}`, getApiUrl()).href,
       );
-      const data = await response.json();
+      const data = json as any;
 
-      if (data.success && data.emailVerified) {
+      if (data?.success && data?.emailVerified) {
         const updatedUser = { ...user, emailVerified: true };
         await saveUser(updatedUser);
         return true;
@@ -325,16 +409,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       return false;
     }
-  }, [user]);
+  }, [fetchJson, user]);
 
   const submitSelfie = useCallback(
     async (selfieData?: string) => {
       if (!user) return { success: false, message: "Not authenticated" };
 
       try {
-        const baseUrl = getApiUrl();
-        const response = await fetch(
-          new URL("/api/auth/submit-selfie", baseUrl).href,
+        clearServiceError();
+        const { json } = await fetchJson(
+          new URL("/api/auth/submit-selfie", getApiUrl()).href,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -345,32 +429,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         );
 
-        const data = await response.json();
+        const data = json as any;
 
-        if (data.success) {
+        if (data?.success) {
           const updatedUser = { ...user, selfieSubmitted: true };
           await saveUser(updatedUser);
         }
 
-        return data;
+        return data ?? { success: false, message: "Unknown response." };
       } catch (error: any) {
-        return { success: false, message: "Network error. Please try again." };
+        return {
+          success: false,
+          message:
+            error?.message ||
+            "Unable to reach the authentication service. Please try again.",
+        };
       }
     },
-    [user],
+    [fetchJson, user],
   );
 
   const refreshUserStatus = useCallback(async () => {
     if (!user) return;
 
     try {
-      const baseUrl = getApiUrl();
-      const response = await fetch(
-        new URL(`/api/auth/user-status/${user.uid}`, baseUrl).href,
+      clearServiceError();
+      const { json } = await fetchJson(
+        new URL(`/api/auth/user-status/${user.uid}`, getApiUrl()).href,
       );
-      const data = await response.json();
+      const data = json as any;
 
-      if (data.success) {
+      if (data?.success) {
         const updatedUser = {
           ...user,
           emailVerified: data.emailVerified || false,
@@ -382,7 +471,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Refresh status error:", error);
     }
-  }, [user]);
+  }, [fetchJson, user]);
 
   const sendOTP = useCallback(async (type: AuthMethod, value: string) => {
     setPendingAuth({ type, value });
@@ -411,9 +500,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const baseUrl = getApiUrl();
-        const response = await fetch(
-          new URL("/api/auth/update-profile", baseUrl).href,
+        clearServiceError();
+        const { json } = await fetchJson(
+          new URL("/api/auth/update-profile", getApiUrl()).href,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -421,20 +510,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         );
 
-        const data = await response.json();
+        const data = json as any;
 
-        if (data.success) {
+        if (data?.success) {
           const updatedUser = { ...user, ...profile };
           await saveUser(updatedUser);
         }
 
-        return data;
+        return data ?? { success: false, message: "Unknown response." };
       } catch (error: any) {
         console.error("Update profile error:", error);
-        return { success: false, message: "Network error. Please try again." };
+        return {
+          success: false,
+          message:
+            error?.message ||
+            "Unable to reach the authentication service. Please try again.",
+        };
       }
     },
-    [user],
+    [fetchJson, user],
   );
 
   const logout = useCallback(async () => {
@@ -463,6 +557,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshUserStatus,
         updateProfile,
         logout,
+        serviceError,
+        clearServiceError,
       }}
     >
       {children}
@@ -509,6 +605,8 @@ export function useAuth() {
         message: "Auth provider not ready",
       }),
       logout: async () => {},
+      serviceError: null,
+      clearServiceError: () => {},
     };
   }
   return context;

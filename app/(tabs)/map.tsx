@@ -22,6 +22,7 @@ import * as Location from "expo-location";
 import MapView from "react-native-maps";
 import { NativeMap } from "@/components/map/NativeMap";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/contexts/AuthContext";
 import { Image } from "expo-image";
 import {
   colors,
@@ -40,19 +41,20 @@ import {
   DynamicWeatherOverlay,
   WeatherOverlayData,
 } from "@/components/map/DynamicWeatherOverlay";
-import { WeatherChange, RouteWeatherPoint } from "@/components/weather";
+import { WeatherChange } from "@/components/weather";
 import { WeatherDetailModal } from "@/components/weather/WeatherDetailModal";
 import {
   ClusterVibeSheet,
   type EnhancedCluster,
 } from "@/components/map/EnhancedCampfireCluster";
-import { useGhostMode, useMode, type AppMode } from "@/contexts/ModeContext";
+import { useGhostMode, useMode } from "@/contexts/ModeContext";
 import { radarService } from "@/services/radar/radarService";
 import {
   mapService,
   MapMarkerData,
   SmartRouteSuggestion,
 } from "@/services/map/mapService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LookAheadRadar } from "@/components/radar/LookAheadRadar";
 import { getWeatherForLocation } from "@/services/map/advancedMapService";
 import { getCurrentWeather } from "@/services/weather/weatherService";
@@ -162,6 +164,105 @@ const nearbyEvents: ActivityEvent[] = [
   },
 ];
 
+const reviewerDemoMarkers: MapMarkerData[] = [
+  {
+    id: "review-pin-1",
+    type: "traveler",
+    latitude: 34.0522,
+    longitude: -118.2437,
+    name: "Nomad Loop",
+    title: "Nomad Loop",
+    subtitle: "Los Angeles, CA",
+    age: 31,
+    vehicle: "Sprinter",
+    online: true,
+  },
+  {
+    id: "review-pin-2",
+    type: "traveler",
+    latitude: 36.1699,
+    longitude: -115.1398,
+    name: "Route Runner",
+    title: "Route Runner",
+    subtitle: "Las Vegas, NV",
+    age: 29,
+    vehicle: "Off-road Van",
+    online: true,
+  },
+  {
+    id: "review-pin-3",
+    type: "traveler",
+    latitude: 40.7128,
+    longitude: -74.006,
+    name: "East Coast Nomad",
+    title: "East Coast Nomad",
+    subtitle: "New York, NY",
+    age: 35,
+    vehicle: "Vanlife Sprinter",
+    online: true,
+  },
+  {
+    id: "review-pin-4",
+    type: "traveler",
+    latitude: 47.6062,
+    longitude: -122.3321,
+    name: "Pacific Patrol",
+    title: "Pacific Patrol",
+    subtitle: "Seattle, WA",
+    age: 27,
+    vehicle: "Mercedes Camper",
+    online: true,
+  },
+  {
+    id: "review-pin-5",
+    type: "traveler",
+    latitude: 39.7392,
+    longitude: -104.9903,
+    name: "Skyline Drifter",
+    title: "Skyline Drifter",
+    subtitle: "Denver, CO",
+    age: 33,
+    vehicle: "Nomad Cruiser",
+    online: true,
+  },
+  {
+    id: "review-pin-6",
+    type: "traveler",
+    latitude: 32.7157,
+    longitude: -117.1611,
+    name: "Coastal Camper",
+    title: "Coastal Camper",
+    subtitle: "San Diego, CA",
+    age: 30,
+    vehicle: "Coastal Van",
+    online: true,
+  },
+  {
+    id: "review-pin-7",
+    type: "traveler",
+    latitude: 37.7749,
+    longitude: -122.4194,
+    name: "Golden Gate Rover",
+    title: "Golden Gate Rover",
+    subtitle: "San Francisco, CA",
+    age: 34,
+    vehicle: "Adventure Van",
+    online: true,
+  },
+  {
+    id: "review-pin-8",
+    type: "traveler",
+    latitude: 35.6895,
+    longitude: -105.9381,
+    name: "Mesa Messenger",
+    title: "Mesa Messenger",
+    subtitle: "Santa Fe, NM",
+    age: 32,
+    vehicle: "All-Terrain RV",
+    online: true,
+  },
+];
+
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { mode: globalMode, setMode, setPremium } = useMode();
@@ -211,6 +312,10 @@ export default function MapScreen() {
     { id: string; latitude: number; longitude: number; title: string }[]
   >([]);
   const [showSmartRouteScreen, setShowSmartRouteScreen] = useState(false);
+
+  const { user } = useAuth();
+  const isReviewerUser =
+    user?.email?.trim().toLowerCase() === "apple-review@wildergo.com";
 
   // Ghost mode state from context
   const { isGhostMode, isPremium } = useGhostMode();
@@ -307,8 +412,7 @@ export default function MapScreen() {
 
   // Load route overlap notifications
   useEffect(() => {
-    const _notifications =
-      radarService.getRouteOverlapNotifications(currentUserId);
+    radarService.getRouteOverlapNotifications(currentUserId);
     // Notifications loaded for potential future use
   }, [currentUserId]);
 
@@ -328,44 +432,6 @@ export default function MapScreen() {
         currentCondition: "cloudy",
         upcomingCondition: "snowy",
         severity: "medium",
-      },
-    ];
-
-    const demoRouteWeather: RouteWeatherPoint[] = [
-      {
-        time: "2:00 PM",
-        location: "Moab, UT",
-        condition: "sunny",
-        temperature: 75,
-        distance: "Start",
-      },
-      {
-        time: "4:30 PM",
-        location: "Green River",
-        condition: "cloudy",
-        temperature: 68,
-        distance: "52 mi",
-      },
-      {
-        time: "6:45 PM",
-        location: "Price",
-        condition: "rainy",
-        temperature: 58,
-        distance: "115 mi",
-      },
-      {
-        time: "8:30 PM",
-        location: "Spanish Fork",
-        condition: "stormy",
-        temperature: 52,
-        distance: "178 mi",
-      },
-      {
-        time: "10:00 PM",
-        location: "Salt Lake City",
-        condition: "cloudy",
-        temperature: 55,
-        distance: "232 mi",
       },
     ];
 
@@ -400,38 +466,49 @@ export default function MapScreen() {
 
   // Load markers based on active mode
   useEffect(() => {
-    const filteredMarkers = mapService.getMarkersForMode(activeMode);
+    (async () => {
+      const mock = await AsyncStorage.getItem("@wildergo_mock_markers");
+      const filteredMarkers = mock
+        ? (JSON.parse(mock) as MapMarkerData[])
+        : mapService.getMarkersForMode(activeMode);
 
-    // Add nearby events as markers with Ghost Hosting privacy logic
-    const eventMarkers = nearbyEvents.map((event) => {
-      // Ghost Hosting logic: show exact location only if user is host or approved
-      const isHost = event.hostId === currentUserId;
-      const isApproved = event.approvedGuests?.includes(currentUserId) || false;
-      const showExactLocation = isHost || isApproved;
+      // Add nearby events as markers with Ghost Hosting privacy logic
+      const eventMarkers = nearbyEvents.map((event) => {
+        // Ghost Hosting logic: show exact location only if user is host or approved
+        const isHost = event.hostId === currentUserId;
+        const isApproved =
+          event.approvedGuests?.includes(currentUserId) || false;
+        const showExactLocation = isHost || isApproved;
 
-      return {
-        id: event.id,
-        type: "campfire" as const,
-        name: event.title,
-        latitude: showExactLocation ? event.latitude : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
-        longitude: showExactLocation ? event.longitude : event.longitude + (Math.random() - 0.5) * 0.01,
-        eventName: event.title,
-        eventType: event.type,
-        attendees: event.attendees,
-        maxAttendees: event.maxAttendees,
-        participants: event.attendees,
-        host: event.host,
-        eventTime: event.time,
-        time: event.time,
-        subtitle: event.location,
-        location: event.location,
-        description: event.description,
-        imageUrl: event.imageUrl,
-      };
-    });
+        return {
+          id: event.id,
+          type: "campfire" as const,
+          name: event.title,
+          latitude: showExactLocation
+            ? event.latitude
+            : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
+          longitude: showExactLocation
+            ? event.longitude
+            : event.longitude + (Math.random() - 0.5) * 0.01,
+          eventName: event.title,
+          eventType: event.type,
+          attendees: event.attendees,
+          maxAttendees: event.maxAttendees,
+          participants: event.attendees,
+          host: event.host,
+          eventTime: event.time,
+          time: event.time,
+          subtitle: event.location,
+          location: event.location,
+          description: event.description,
+          imageUrl: event.imageUrl,
+        };
+      });
 
-    setMarkers([...filteredMarkers, ...eventMarkers]);
-  }, [activeMode, nearbyEvents, currentUserId]);
+      const reviewMarkers = isReviewerUser ? reviewerDemoMarkers : [];
+      setMarkers([...filteredMarkers, ...reviewMarkers, ...eventMarkers]);
+    })();
+  }, [activeMode, currentUserId]);
 
   // Load weather data for overlay
   useEffect(() => {
@@ -923,15 +1000,20 @@ export default function MapScreen() {
                     onPress={() => {
                       // Ghost Hosting logic: show exact location only if user is host or approved
                       const isHost = event.hostId === currentUserId;
-                      const isApproved = event.approvedGuests?.includes(currentUserId) || false;
+                      const isApproved =
+                        event.approvedGuests?.includes(currentUserId) || false;
                       const showExactLocation = isHost || isApproved;
 
                       const eventMarker: MapMarkerData = {
                         id: event.id,
                         type: "campfire",
                         name: event.title,
-                        latitude: showExactLocation ? event.latitude : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
-                        longitude: showExactLocation ? event.longitude : event.longitude + (Math.random() - 0.5) * 0.01,
+                        latitude: showExactLocation
+                          ? event.latitude
+                          : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
+                        longitude: showExactLocation
+                          ? event.longitude
+                          : event.longitude + (Math.random() - 0.5) * 0.01,
                         eventName: event.title,
                         eventType: event.type,
                         attendees: event.attendees,
@@ -1139,7 +1221,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backgroundColor: "rgba(255, 255, 255, 1)",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -1157,7 +1239,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backgroundColor: "rgba(255, 255, 255, 1)",
     borderRadius: borderRadius.lg,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

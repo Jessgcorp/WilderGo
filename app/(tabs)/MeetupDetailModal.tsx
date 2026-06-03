@@ -31,13 +31,13 @@ type MeetupCard = {
   schedule?: Array<{ time: string; label: string }>;
 };
 
-export default function MeetupDetailModal({
-  meetup,
-  onClose,
-}: {
-  meetup: MeetupCard | null;
+type MeetupDetailModalProps = {
+  visible: boolean;
   onClose: () => void;
-}) {
+  meetup: MeetupCard | null;
+};
+
+export default function MeetupDetailModal({ visible, onClose, meetup }: MeetupDetailModalProps) {
   const [requested, setRequested] = useState(false);
 
   if (!meetup) return null;
@@ -51,7 +51,7 @@ export default function MeetupDetailModal({
   ];
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <ScrollView contentContainerStyle={styles.scrollContent}>

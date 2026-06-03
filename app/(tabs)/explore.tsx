@@ -326,13 +326,11 @@ export default function ExploreScreen() {
             </View>
           </ImageBackground>
 
-          {selectedMeetup && modalVisible && (
+          {selectedMeetup && (
             <MeetupDetailModal
+              visible={modalVisible}
+              onClose={() => setModalVisible(false)}
               meetup={selectedMeetup}
-              onClose={() => {
-                setModalVisible(false);
-                setSelectedMeetup(null);
-              }}
             />
           )}
         </ScrollView>

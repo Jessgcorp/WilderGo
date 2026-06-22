@@ -1,12 +1,18 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import * as Device from "expo-device";
 
 const LIVE_PRODUCTION_API_URL =
   "https://aa60d38e-336a-4c6c-8c7a-2e8f4ae13a3f-00-37dgmtff0mvif.picard.replit.dev/";
 
 const DEFAULT_API_TIMEOUT_MS = 15000;
+const DEFAULT_DEV_API_PORT = process.env.EXPO_PUBLIC_API_PORT ?? "5000";
+
+type ExpoManifestLike = {
+  extra?: Record<string, unknown>;
+  debuggerHost?: string;
+  hostUri?: string;
+};
 
 export async function fetchWithTimeout(
   input: RequestInfo,
@@ -29,24 +35,127 @@ function withTrailingSlash(url: string): string {
   return url.endsWith("/") ? url : `${url}/`;
 }
 
-function ensureHttpUrl(url: string): string {
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
+function isLoopbackHostname(hostname: string): boolean {
+  return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(
+    hostname.toLowerCase(),
+  );
+}
+
+function isPrivateNetworkHostname(hostname: string): boolean {
+  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(hostname);
+}
+
+function usesTunnelHost(value: string): boolean {
+  return /ngrok(-free)?\.app|ngrok\.io|trycloudflare\.com|replit\.dev|picard\.replit\.dev/i.test(
+    value,
+  );
+}
+
+function normalizeApiUrl(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const valueWithProtocol = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `${usesTunnelHost(trimmed) ? "https" : "http"}://${trimmed}`;
+
+  try {
+    const url = new URL(valueWithProtocol);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return undefined;
+    }
+    return withTrailingSlash(url.href);
+  } catch {
+    return undefined;
+  }
+}
+
+function getExtraString(key: string): string | undefined {
+  const constants = Constants as typeof Constants & {
+    manifest?: ExpoManifestLike;
+    manifest2?: ExpoManifestLike;
+  };
+  const extraSources = [
+    Constants.expoConfig?.extra,
+    constants.manifest?.extra,
+    constants.manifest2?.extra,
+  ];
+
+  for (const extra of extraSources) {
+    const value = extra?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
   }
 
-  const localHostPattern =
-    /^(localhost|127\.0\.0\.1|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
-  if (localHostPattern.test(url)) {
-    return `http://${url}`;
+  return undefined;
+}
+
+function getExpoHostUri(): string | undefined {
+  const constants = Constants as typeof Constants & {
+    manifest?: ExpoManifestLike;
+    manifest2?: ExpoManifestLike;
+  };
+  const expoConfig = Constants.expoConfig as ExpoManifestLike | null | undefined;
+
+  return (
+    expoConfig?.hostUri ??
+    expoConfig?.debuggerHost ??
+    (expoConfig?.extra?.expoGo as ExpoManifestLike | undefined)?.debuggerHost ??
+    (expoConfig?.extra?.expoClient as ExpoManifestLike | undefined)?.hostUri ??
+    constants.manifest?.hostUri ??
+    constants.manifest?.debuggerHost ??
+    constants.manifest2?.hostUri ??
+    constants.manifest2?.debuggerHost
+  );
+}
+
+function deriveApiUrlFromPackagerHost(): string | undefined {
+  const hostUri = getExpoHostUri();
+  if (!hostUri || hostUri.includes("exp.direct") || hostUri.includes(".exp.")) {
+    return undefined;
   }
 
-  return `https://${url}`;
+  try {
+    const url = new URL(
+      /^https?:\/\//i.test(hostUri) ? hostUri : `http://${hostUri}`,
+    );
+
+    if (isLoopbackHostname(url.hostname)) {
+      return undefined;
+    }
+
+    if (usesTunnelHost(url.hostname)) {
+      url.protocol = "https:";
+      url.port = "";
+      return withTrailingSlash(url.href);
+    }
+
+    if (isPrivateNetworkHostname(url.hostname)) {
+      url.protocol = "http:";
+      url.port = DEFAULT_DEV_API_PORT;
+      return withTrailingSlash(url.href);
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function firstConfiguredApiUrl(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (!value) continue;
+    const normalized = normalizeApiUrl(value);
+    if (normalized) return normalized;
+  }
+
+  return undefined;
 }
 
 /**
  * REST API base URL for native apps.
- * Never use the Metro / Expo Go bundle host (*.exp.direct) as the API — that host only serves JS
- * and would send /api traffic through Metro's dev proxy (or time out).
+ * iOS simulator auth must target a real LAN IP or HTTPS tunnel, not localhost.
  */
 export function getApiUrl(): string {
   if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -57,56 +166,29 @@ export function getApiUrl(): string {
     return `${loc.protocol}//${loc.host}/`;
   }
 
-  const explicitApi = process.env.EXPO_PUBLIC_API_URL;
-  if (explicitApi) {
-    return withTrailingSlash(ensureHttpUrl(explicitApi));
+  const configured = firstConfiguredApiUrl(
+    process.env.EXPO_PUBLIC_API_URL,
+    process.env.EXPO_PUBLIC_NGROK_URL,
+    process.env.EXPO_PUBLIC_NGROK_DOMAIN,
+    process.env.EXPO_PUBLIC_DEV_API_URL,
+    process.env.EXPO_PUBLIC_DEV_API_HOST,
+    process.env.EXPO_PUBLIC_DOMAIN,
+    getExtraString("apiBaseUrl"),
+  );
+  if (configured) {
+    return configured;
   }
 
-  // Simulator / emulator share the dev machine's localhost (not extra.apiBaseUrl remote).
-  if (__DEV__ && !Device.isDevice) {
-    if (Platform.OS === "ios") {
-      return "http://127.0.0.1:5000/";
-    }
-    if (Platform.OS === "android") {
-      return "http://10.0.2.2:5000/";
-    }
-  }
-
-  const embedded =
-    (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-    // Some production builds expose `manifest`/`manifest2` instead of `expoConfig`.
-    ((Constants as any).manifest?.extra?.apiBaseUrl as string | undefined) ??
-    ((Constants as any).manifest2?.extra?.apiBaseUrl as string | undefined);
-  if (embedded) {
-    return withTrailingSlash(ensureHttpUrl(embedded));
-  }
-
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) {
-    return withTrailingSlash(ensureHttpUrl(domain));
-  }
-
-  const hostUri =
-    Constants.expoConfig?.extra?.expoGo?.debuggerHost ||
-    Constants.expoConfig?.extra?.expoClient?.hostUri;
-  if (hostUri) {
-    const raw = hostUri.split("/")[0];
-    if (!raw.includes("exp.direct") && !raw.includes(".exp.")) {
-      // LAN: Metro /api proxy on same host:port as the packager (http, keep port)
-      return withTrailingSlash(
-        raw.startsWith("http://") || raw.startsWith("https://")
-          ? raw
-          : `http://${raw}`,
-      );
-    }
+  const packagerDerivedUrl = deriveApiUrlFromPackagerHost();
+  if (packagerDerivedUrl) {
+    return packagerDerivedUrl;
   }
 
   console.warn(
-    "No API URL configured. Set EXPO_PUBLIC_API_URL or extra.apiBaseUrl in app.json.",
+    "No native API URL configured. Set EXPO_PUBLIC_API_URL, EXPO_PUBLIC_DEV_API_HOST, EXPO_PUBLIC_NGROK_URL, or extra.apiBaseUrl.",
   );
-  // Never fall back to localhost in production builds.
-  // If env/extra isn't wired correctly, we still need a real reachable backend for auth.
-  return __DEV__ ? "http://127.0.0.1:5000/" : LIVE_PRODUCTION_API_URL;
+
+  return LIVE_PRODUCTION_API_URL;
 }
 
 async function throwIfResNotOk(res: Response) {

@@ -1,199 +1,122 @@
-import React, { useRef, useCallback, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import {
+  ActivityIndicator,
+  Modal,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  Modal,
-  ActivityIndicator,
+  View,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import {
+  GlassContainer,
+  GlassView,
+  isGlassEffectAPIAvailable,
+} from "expo-glass-effect";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as SplashScreen from "expo-splash-screen";
-import Reanimated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  runOnJS,
-  useAnimatedProps,
-} from "react-native-reanimated";
-import Svg, { Circle } from "react-native-svg";
 import { colors } from "@/constants/theme";
 
-const SOS_CRIMSON = "#D30429"; // High-contrast red
-const SOS_HOLD_DURATION = 500; // 500ms for fast emergency response
-const CIRCUMFERENCE = 2 * Math.PI * 14;
+const SOS_CRIMSON = "#D30429";
 
-const ReanimatedCircle = Reanimated.createAnimatedComponent(Circle);
+type TabRoute = {
+  key: string;
+  title: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  path: string;
+};
 
-function SOSButton({ onActivate }: { onActivate: () => void }) {
-  const progress = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const isHolding = useRef(false);
-  const hapticInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startHeartbeat = useCallback(() => {
-    if (hapticInterval.current) return;
-    hapticInterval.current = setInterval(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }, 150);
-  }, []);
-
-  const stopHeartbeat = useCallback(() => {
-    if (hapticInterval.current) {
-      clearInterval(hapticInterval.current);
-      hapticInterval.current = null;
-    }
-  }, []);
-
-  /**
-   * Apple Messages Satellite Relay integration notes.
-   *
-   * This component follows standard iOS location and notification flows.
-   * It is intended to complement WilderGo's Critical Satellite SOS relay
-   * feature using user-granted location permission for emergency routing
-   * and real-time wilderness safety mapping. No private Apple APIs are used
-   * here; the app only accesses location through published system permissions.
-   */
-  const triggerSOS = useCallback(() => {
-    stopHeartbeat();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    onActivate();
-  }, [onActivate, stopHeartbeat]);
-
-  const handlePressIn = () => {
-    isHolding.current = true;
-    progress.value = withTiming(1, { duration: SOS_HOLD_DURATION });
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.1, { duration: 150 }),
-        withTiming(1, { duration: 150 }),
-      ),
-      -1,
-      true,
-    );
-    startHeartbeat();
-
-    setTimeout(() => {
-      if (isHolding.current) {
-        runOnJS(triggerSOS)();
-      }
-    }, SOS_HOLD_DURATION);
-  };
-
-  const handlePressOut = () => {
-    isHolding.current = false;
-    progress.value = withTiming(0, { duration: 200 });
-    scale.value = withTiming(1, { duration: 200 });
-    stopHeartbeat();
-  };
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
-  }));
-
-  const animatedContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <TouchableOpacity
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      onPress={triggerSOS}
-      activeOpacity={0.8}
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      accessible={true}
-      accessibilityLabel="SOS Button"
-      accessibilityHint="Tap to open SOS modal. Hold for 500ms to trigger emergency alert."
-      style={styles.sosContainer}
-    >
-      <View style={styles.sosOnlineBadge} pointerEvents="none">
-        <Text style={styles.sosOnlineBadgeText}>Online</Text>
-      </View>
-      <Reanimated.View style={[styles.sosBtn, animatedContainerStyle]}>
-        <View style={styles.sosBadge}>
-          <Ionicons
-            name="alert-circle"
-            size={12}
-            color="#FFF"
-            style={{ marginRight: 3 }}
-          />
-          <Text
-            style={styles.sosBadgeText}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-            maxFontSizeMultiplier={1.1}
-          >
-            SOS
-          </Text>
-        </View>
-        <Svg width="44" height="44" style={styles.sosSvg}>
-          <Circle
-            cx="22"
-            cy="22"
-            r="14"
-            fill="none"
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="2"
-          />
-          <ReanimatedCircle
-            cx="22"
-            cy="22"
-            r="14"
-            fill="none"
-            stroke={SOS_CRIMSON}
-            strokeWidth="2"
-            strokeDasharray={CIRCUMFERENCE}
-            animatedProps={animatedProps}
-            strokeLinecap="round"
-            transform="rotate(-90 22 22)"
-          />
-        </Svg>
-      </Reanimated.View>
-    </TouchableOpacity>
-  );
-}
-
-const TAB_ROUTES = [
+const TAB_ROUTES: TabRoute[] = [
   {
     key: "discovery",
     title: "Explore",
-    icon: "compass-outline" as const,
+    icon: "compass-outline",
     path: "/(tabs)/discovery",
   },
   {
     key: "map",
     title: "Map",
-    icon: "map-outline" as const,
+    icon: "map-outline",
     path: "/(tabs)/map",
   },
   {
     key: "messages",
     title: "Chat",
-    icon: "chatbubble-outline" as const,
+    icon: "chatbubble-outline",
     path: "/(tabs)/messages",
   },
   {
     key: "profile",
     title: "Community",
-    icon: "people-outline" as const,
+    icon: "people-outline",
     path: "/(tabs)/profile",
   },
 ];
 
-function WilderPill() {
+type GlassHubActionProps = {
+  id: string;
+  title: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  selected?: boolean;
+  sos?: boolean;
+  onPress: () => void;
+};
+
+function GlassHubAction({
+  id,
+  title,
+  icon,
+  selected = false,
+  sos = false,
+  onPress,
+}: GlassHubActionProps) {
+  const textColor = sos || selected ? "#FFFFFF" : "rgba(29, 29, 31, 0.72)";
+  const iconColor = sos || selected ? "#FFFFFF" : "rgba(29, 29, 31, 0.58)";
+
+  return (
+    <GlassView
+      nativeID={`wildergo-glass-effect-${id}`}
+      glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.22 }}
+      tintColor={sos ? SOS_CRIMSON : selected ? "rgba(47, 111, 78, 0.82)" : "rgba(255, 255, 255, 0.62)"}
+      isInteractive
+      colorScheme="light"
+      style={[styles.glassAction, sos && styles.sosGlassAction]}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.78}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessible={true}
+        accessibilityLabel={sos ? "SOS Emergency Button" : `${title} tab`}
+        accessibilityRole={sos ? "button" : "tab"}
+        accessibilityState={sos ? undefined : { selected }}
+        style={styles.glassActionPressable}
+      >
+        <Ionicons name={icon} size={sos ? 21 : 20} color={iconColor} />
+        <Text
+          style={[styles.glassActionText, { color: textColor }, sos && styles.sosText]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+        >
+          {sos ? "SOS" : title}
+        </Text>
+      </TouchableOpacity>
+    </GlassView>
+  );
+}
+
+function LiquidGlassBottomHub() {
   const pathname = usePathname();
   const router = useRouter();
   const [showSOSModal, setShowSOSModal] = useState(false);
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
+  const [glassAvailable] = useState(() => isGlassEffectAPIAvailable());
 
   const activeKey =
-    TAB_ROUTES.find((t) => pathname.includes(t.key))?.key || "discovery";
+    TAB_ROUTES.find((route) => pathname.includes(route.key))?.key || "discovery";
 
   const handleTabPress = useCallback(
     (path: string) => {
@@ -203,80 +126,49 @@ function WilderPill() {
     [router],
   );
 
-  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
-
   const handleSOS = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     setShowSOSModal(true);
   }, []);
 
   return (
-    <View style={styles.pillAnchor}>
-      <View style={styles.pillOuter}>
-        {/* Apple-style glass effect with blur and saturation.
-            Maps visually to UIBlurEffectStyleSystemChromeMaterialLight on iOS 26.
-            Using a high intensity and transparent background to emulate native "liquid glass".
-          */}
-        <BlurView
-          intensity={100}
-          tint="light"
-          style={[StyleSheet.absoluteFill, { backgroundColor: "transparent" }]}
-        />
-        <View style={styles.pillInner}>
-          <View style={styles.tabsContainer}>
-            {TAB_ROUTES.map((tab) => {
-              const isFocused = activeKey === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  onPress={() => handleTabPress(tab.path)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  accessible={true}
-                  accessibilityLabel={`${tab.title} tab`}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isFocused }}
-                  style={styles.tabItem}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={tab.icon}
-                    size={22}
-                    color={isFocused ? "#000000" : "rgba(29, 29, 31, 0.45)"}
-                  />
-                  {isFocused && (
-                    <Text
-                      style={styles.tabLabel}
-                      allowFontScaling={true}
-                      numberOfLines={1}
-                      minimumFontScale={0.85}
-                      maxFontSizeMultiplier={1.3}
-                    >
-                      {tab.title}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+    <View pointerEvents="box-none" style={styles.hubLayer}>
+      <GlassContainer
+        nativeID="wildergo-global-glass-effect-container"
+        spacing={18}
+        style={styles.glassHubContainer}
+      >
+        {!glassAvailable ? (
+          <BlurView intensity={88} tint="light" style={styles.glassFallback} />
+        ) : null}
+
+        <View style={styles.glassHubContent}>
+          <View style={styles.destinationCluster}>
+            {TAB_ROUTES.map((tab) => (
+              <GlassHubAction
+                key={tab.key}
+                id={`tab-${tab.key}`}
+                title={tab.title}
+                icon={tab.icon}
+                selected={activeKey === tab.key}
+                onPress={() => handleTabPress(tab.path)}
+              />
+            ))}
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Nearby status and SOS button */}
-          <View style={styles.sosColumn}>
-            <View style={styles.statusGroup}>
-              <View style={styles.nearbyCircle} />
-              <SOSButton onActivate={handleSOS} />
-            </View>
-          </View>
+          <GlassHubAction
+            id="sos-emergency"
+            title="SOS"
+            icon="alert-circle"
+            sos
+            onPress={handleSOS}
+          />
         </View>
-      </View>
+      </GlassContainer>
 
       <Modal transparent visible={showSOSModal} animationType="fade">
         <View style={styles.modalOverlay}>
-          <BlurView
-            intensity={100}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
+          <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.sosModalCard}>
             <Text
               style={styles.sosModalTitle}
@@ -385,7 +277,7 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: { display: "none" },
-          tabBarShowLabel: true,
+          tabBarShowLabel: false,
         }}
       >
         <Tabs.Screen name="discovery" options={{ title: "Explore" }} />
@@ -394,7 +286,7 @@ export default function TabsLayout() {
         <Tabs.Screen name="profile" options={{ title: "Community" }} />
         <Tabs.Screen name="help" options={{ title: "Help" }} />
       </Tabs>
-      <WilderPill />
+      <LiquidGlassBottomHub />
     </View>
   );
 }
@@ -409,166 +301,73 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background.primary,
   },
-  pillAnchor: {
+  hubLayer: {
     position: "absolute",
-    bottom: 40,
     left: 0,
     right: 0,
+    bottom: 24,
     alignItems: "center",
-    zIndex: 9999,
+    zIndex: 2147483647,
+    elevation: 2147483647,
   },
-  pillOuter: {
-    width: "92%",
-    minHeight: 92,
+  glassHubContainer: {
+    width: "94%",
+    minHeight: 76,
     borderRadius: 999,
-    overflow: "visible",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.65)",
-    backgroundColor: "rgba(255, 255, 255, 1)",
+    overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.18,
     shadowRadius: 32,
-    elevation: 10,
+    elevation: 24,
   },
-  pillInner: {
+  glassFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+  },
+  glassHubContent: {
+    flex: 1,
+    minHeight: 76,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  destinationCluster: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    gap: 7,
   },
-  tabsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  sosColumn: {
-    alignItems: "center",
-    gap: 0,
-  },
-  statusGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  sosSubheaderCommunity: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#34C759",
-    textAlign: "center",
-    marginTop: 2,
-    letterSpacing: 0.15,
-    display: "none",
-  },
-  sosSubheaderSatellite: {
-    fontSize: 9,
-    fontWeight: "500",
-    color: "#1d1d1f",
-    textAlign: "center",
-    lineHeight: 13,
-    letterSpacing: 0.1,
-    flexWrap: "wrap",
-    display: "none",
-  },
-  nearbyCircle: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#34C759", // Apple green
-  },
-  tabItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+  glassAction: {
+    minWidth: 54,
+    height: 54,
     borderRadius: 999,
-    gap: 6,
-    minWidth: 0,
+    overflow: "hidden",
   },
-  tabLabel: {
+  sosGlassAction: {
+    minWidth: 78,
+  },
+  glassActionPressable: {
+    flex: 1,
+    minWidth: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+  },
+  glassActionText: {
+    maxWidth: 76,
     fontSize: 12,
-    fontWeight: "600",
-    color: "#1d1d1f",
-    flexShrink: 1,
-  },
-  divider: {
-    width: 1,
-    height: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-  },
-  sosContainer: {
-    width: 56,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sosOnlineBadge: {
-    position: "absolute",
-    top: -2,
-    right: -4,
-    zIndex: 2,
-    backgroundColor: "#34C759",
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.55)",
-  },
-  sosOnlineBadgeText: {
-    fontSize: 8,
     fontWeight: "700",
-    color: "#FFFFFF",
-    letterSpacing: 0.15,
-  },
-  sosBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 20,
-    elevation: 12,
-  },
-  sosSvg: {
-    position: "absolute",
   },
   sosText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#1d1d1f",
-  },
-  sosBadge: {
-    position: "absolute",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: "#D30429",
-    bottom: 2,
-    left: -2,
-    right: -2,
-    zIndex: 10,
-    shadowColor: "#D30429",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 8,
-  },
-  sosBadgeText: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    letterSpacing: 0.5,
-    textAlign: "center",
-    textAlignVertical: "center",
+    fontSize: 13,
+    letterSpacing: 0.4,
   },
   modalOverlay: {
     flex: 1,
@@ -632,7 +431,6 @@ const styles = StyleSheet.create({
     color: "#1d1d1f",
     textAlign: "center",
     marginBottom: 14,
-    letterSpacing: -0.5,
   },
   sosModalStatusRow: {
     flexDirection: "row",

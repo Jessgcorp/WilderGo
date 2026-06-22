@@ -73,7 +73,7 @@ export const LocationService = {
   getCurrentLocation: async (): Promise<LocationPoint | null> => {
     try {
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
       });
       lastKnownLocation = {
         latitude: location.coords.latitude,
@@ -111,7 +111,7 @@ export const LocationService = {
 
       watchSubscription = await Location.watchPositionAsync(
         {
-          accuracy: accuracyMap[options?.accuracy ?? "high"],
+          accuracy: accuracyMap[options?.accuracy ?? "balanced"],
           timeInterval: options?.intervalMs ?? 10000,
           distanceInterval: options?.distanceFilter ?? 10,
         },

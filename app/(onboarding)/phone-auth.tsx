@@ -65,7 +65,7 @@ export default function PhoneAuthScreen() {
   };
 
   return (
-    <NatureBackground variant="forest" overlay overlayOpacity={0.45}>
+    <NatureBackground variant="utah" overlay overlayOpacity={0.55}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}

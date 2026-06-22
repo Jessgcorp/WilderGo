@@ -6,7 +6,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@/constants/theme";
 
-import DiscoveryScreen from "../../app/(tabs)/discovery";
+import ExploreScreen from "../../app/(tabs)/explore";
 import MapScreen from "../../app/(tabs)/map";
 import MessagesScreen from "../../app/(tabs)/messages";
 import ProfileScreen from "../../app/(tabs)/profile";
@@ -68,9 +68,9 @@ export default function MainTabNavigator() {
     >
       <Tab.Screen
         name="Discovery"
-        component={DiscoveryScreen}
+        component={ExploreScreen}
         options={{
-          title: "Discover",
+          title: "Explore",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass-outline" size={size} color={color} />
           ),

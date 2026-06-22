@@ -17,13 +17,16 @@ import {
   Linking,
   ActivityIndicator,
 } from "react-native";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from "expo-location";
-import MapView from "react-native-maps";
-import { NativeMap } from "@/components/map/NativeMap";
-import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/contexts/AuthContext";
+import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorFallbackProps } from "@/components/ErrorFallback";
+import { useAuth } from "@/contexts/AuthContext";
+import { NatureBackground } from "@/components/ui/NatureBackground";
 import {
   colors,
   typography,
@@ -42,7 +45,7 @@ import {
   WeatherOverlayData,
 } from "@/components/map/DynamicWeatherOverlay";
 import { WeatherChange } from "@/components/weather";
-import { WeatherDetailModal } from "@/components/weather/WeatherDetailModal";
+import WeatherDetailModal from "@/components/weather/WeatherDetailModal";
 import {
   ClusterVibeSheet,
   type EnhancedCluster,
@@ -314,14 +317,14 @@ export default function MapScreen() {
   const [showSmartRouteScreen, setShowSmartRouteScreen] = useState(false);
 
   const { user } = useAuth();
-  const isReviewerUser =
-    user?.email?.trim().toLowerCase() === "apple-review@wildergo.com";
 
   // Ghost mode state from context
   const { isGhostMode, isPremium } = useGhostMode();
 
   // Map reference
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
+  const [MapComponent, setMapComponent] =
+    useState<React.ComponentType<any> | null>(null);
 
   // Map region state
   const [mapRegion, setMapRegion] = useState<Region>({
@@ -331,6 +334,31 @@ export default function MapScreen() {
     longitudeDelta: 2.5,
   });
 
+  useEffect(() => {
+    const restoreSavedRegion = async () => {
+      try {
+        const savedRegion = await AsyncStorage.getItem(
+          "@wildergo_last_map_region",
+        );
+        if (savedRegion) {
+          const parsed = JSON.parse(savedRegion) as Region;
+          setMapRegion(parsed);
+        }
+      } catch (error) {
+        console.warn("Unable to restore last map region:", error);
+      }
+    };
+
+    restoreSavedRegion();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(
+      "@wildergo_last_map_region",
+      JSON.stringify(mapRegion),
+    ).catch(() => {});
+  }, [mapRegion]);
+
   // Default map center coordinates
   const mapCenter = useMemo(
     () => ({
@@ -339,6 +367,22 @@ export default function MapScreen() {
     }),
     [],
   );
+
+  const { isOffline, hasStrongSignal, signalLabel } = useNetworkStatus();
+
+  const isLowDataMode = isOffline || !hasStrongSignal;
+  const [cachedMapRegion, setCachedMapRegion] = useState<{
+    center: { latitude: number; longitude: number };
+    radiusMiles: number;
+    bounds: {
+      north: number;
+      south: number;
+      east: number;
+      west: number;
+    };
+    cachedAt: string;
+  } | null>(null);
+
 
   // Request location permission on mount
   useEffect(() => {
@@ -363,6 +407,79 @@ export default function MapScreen() {
 
     checkLocationPermission();
   }, []);
+
+  const isReviewerUser =
+    user?.email?.trim().toLowerCase() === "apple-review@wildergo.com";
+  const canRenderNativeMap = true;
+  const [mapLoadFailed, setMapLoadFailed] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const loadMap = useCallback(async () => {
+    if (!canRenderNativeMap) {
+      if (isMountedRef.current) {
+        setMapLoadFailed(true);
+        setMapComponent(null);
+      }
+      return;
+    }
+
+    if (isMountedRef.current) {
+      setMapLoadFailed(false);
+    }
+
+    try {
+      const mod = await import("@/components/map/NativeMap");
+      const importedMap = mod?.NativeMap ?? mod?.default ?? null;
+      if (!importedMap) {
+        throw new Error("NativeMap module did not expose a usable component");
+      }
+
+      if (isMountedRef.current) {
+        setMapComponent(() => importedMap as React.ComponentType<any>);
+      }
+    } catch (e) {
+      console.warn("NativeMap not available:", e);
+      if (isMountedRef.current) {
+        setMapLoadFailed(true);
+        setMapComponent(null);
+      }
+    }
+  }, [canRenderNativeMap]);
+
+  // Lazy-load NativeMap only when running in a development/custom build, not Expo Go.
+  useEffect(() => {
+    loadMap();
+  }, [loadMap]);
+
+  const MapErrorFallback = ({ error, resetError }: ErrorFallbackProps) => (
+    <BlurView intensity={95} tint="light" style={styles.mapCalibrationWrapper}>
+      <View style={styles.glassmorphismCard}>
+        <View style={styles.errorIconContainer}>
+          <Ionicons name="wifi-outline" size={36} color={colors.bark[900]} />
+        </View>
+        <Text style={styles.mapFallbackTitle}>Nomad Network</Text>
+        <Text style={styles.mapFallbackSubtext}>
+          Nomad Network: Please connect to sync data.
+        </Text>
+        <TouchableOpacity
+          style={styles.mapRetryButton}
+          onPress={() => {
+            resetError();
+            loadMap();
+          }}
+        >
+          <Text style={styles.mapRetryText}>Retry Connection</Text>
+        </TouchableOpacity>
+      </View>
+    </BlurView>
+  );
 
   // Fetch live weather when user location changes
   useEffect(() => {
@@ -395,20 +512,30 @@ export default function MapScreen() {
             description: "Weather unavailable",
           });
         }
-      } catch (error) {
-        console.error("Error fetching live weather:", error);
-        setLiveWeather({
-          temperature: 0,
-          condition: "Clear",
-          description: "Weather unavailable",
-        });
+      } catch (error: any) {
+        // Handle 429 (Too Many Requests) and other errors gracefully
+        if (error?.response?.status === 429) {
+          console.warn("Weather API rate limit hit, showing fallback");
+          setLiveWeather({
+            temperature: 0,
+            condition: "--",
+            description: "--°",
+          });
+        } else {
+          console.error("Error fetching live weather:", error);
+          setLiveWeather({
+            temperature: 0,
+            condition: "Clear",
+            description: "Weather unavailable",
+          });
+        }
       }
     };
 
     fetchLiveWeather();
     const weatherInterval = setInterval(fetchLiveWeather, 5 * 60 * 1000);
     return () => clearInterval(weatherInterval);
-  }, [userLocation, liveWeather, mapCenter]);
+  }, [userLocation, mapCenter]);
 
   // Load route overlap notifications
   useEffect(() => {
@@ -465,16 +592,29 @@ export default function MapScreen() {
   ]);
 
   // Load markers based on active mode
+  const safeMode = activeMode ?? "friends";
+
+  const memoizedBaseMarkers = useMemo(() => {
+    return isReviewerUser
+      ? reviewerDemoMarkers
+      : mapService.getMarkersForMode(safeMode);
+  }, [safeMode, isReviewerUser]);
+
   useEffect(() => {
-    (async () => {
+    let isActive = true;
+
+    const markersAreEqual = (a: MapMarkerData[], b: MapMarkerData[]) => {
+      if (a.length !== b.length) return false;
+      return a.every((item, index) => item.id === b[index].id);
+    };
+
+    const loadMarkers = async () => {
       const mock = await AsyncStorage.getItem("@wildergo_mock_markers");
       const filteredMarkers = mock
         ? (JSON.parse(mock) as MapMarkerData[])
-        : mapService.getMarkersForMode(activeMode);
+        : memoizedBaseMarkers;
 
-      // Add nearby events as markers with Ghost Hosting privacy logic
       const eventMarkers = nearbyEvents.map((event) => {
-        // Ghost Hosting logic: show exact location only if user is host or approved
         const isHost = event.hostId === currentUserId;
         const isApproved =
           event.approvedGuests?.includes(currentUserId) || false;
@@ -486,7 +626,7 @@ export default function MapScreen() {
           name: event.title,
           latitude: showExactLocation
             ? event.latitude
-            : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
+            : event.latitude + (Math.random() - 0.5) * 0.01,
           longitude: showExactLocation
             ? event.longitude
             : event.longitude + (Math.random() - 0.5) * 0.01,
@@ -506,11 +646,26 @@ export default function MapScreen() {
       });
 
       const reviewMarkers = isReviewerUser ? reviewerDemoMarkers : [];
-      setMarkers([...filteredMarkers, ...reviewMarkers, ...eventMarkers]);
-    })();
-  }, [activeMode, currentUserId]);
+      const newMarkers = isReviewerUser
+        ? reviewMarkers
+        : [...filteredMarkers, ...eventMarkers];
 
-  // Load weather data for overlay
+      if (isActive) {
+        setMarkers((prevMarkers) =>
+          markersAreEqual(prevMarkers, newMarkers) ? prevMarkers : newMarkers,
+        );
+      }
+    };
+
+    loadMarkers();
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeMode, currentUserId, isReviewerUser]);
+
+  // Weather fetching disabled for archive build.
+  /*
   useEffect(() => {
     const loadWeather = () => {
       try {
@@ -519,19 +674,16 @@ export default function MapScreen() {
           mapCenter.longitude,
         );
         if (weather) {
-          // Convert to overlay format
           const overlayData: WeatherOverlayData = {
             windSpeed: weather.windSpeed || 0,
             windDirection: weather.windDirection || "N",
             condition: mapWeatherCondition(weather.condition || "clear"),
-            // Storm cells would come from weather alerts service
             stormCells: [],
           };
           setWeatherData(overlayData);
         }
       } catch (error) {
         console.error("Error loading weather for overlay:", error);
-        // Set default mild weather
         setWeatherData({
           windSpeed: 8,
           windDirection: "SW",
@@ -541,19 +693,22 @@ export default function MapScreen() {
     };
     loadWeather();
   }, [mapCenter.latitude, mapCenter.longitude]);
+  */
 
   // Sync local active mode with context and keep the map mode state consistent
   useEffect(() => {
     if (activeMode !== globalMode) {
       setActiveMode(globalMode);
     }
-  }, [globalMode, activeMode]);
+  }, [globalMode]);
 
-  useEffect(() => {
-    if (activeMode !== globalMode) {
-      setMode(activeMode);
-    }
-  }, [activeMode, globalMode, setMode]);
+  const changeMapMode = useCallback(
+    (newMode: typeof activeMode) => {
+      setActiveMode(newMode);
+      setMode(newMode);
+    },
+    [setMode],
+  );
 
   // Handle Look Ahead button press
   const handleLookAhead = useCallback(() => {
@@ -653,6 +808,31 @@ export default function MapScreen() {
     }
   }, [locationPermission]);
 
+  const getMapCacheBounds = useCallback(
+    (latitude: number, longitude: number, radiusMiles = 5) => {
+      const degrees = radiusMiles / 69;
+      return {
+        north: latitude + degrees,
+        south: latitude - degrees,
+        east: longitude + degrees,
+        west: longitude - degrees,
+      };
+    },
+    [],
+  );
+
+  // Offline map caching disabled for demo/stability to avoid high CPU usage.
+  const cacheMapRegion = useCallback(async (_center: { latitude: number; longitude: number }) => {
+    // intentionally no-op
+    console.log("Map caching is disabled for demo/stability");
+  }, []);
+
+  const loadCachedMapRegion = useCallback(async () => {
+    // caching disabled — do not attempt to load cached map regions
+    return null;
+  }, []);
+
+
   const handleSmartRoute = useCallback(() => {
     setShowSmartRouteScreen(true);
   }, []);
@@ -736,443 +916,502 @@ export default function MapScreen() {
   }
 
   return (
-    <View
-      style={[
-        styles.screenContainer,
-        { paddingTop: isMapExpanded ? 0 : insets.top },
-      ]}
-    >
-      {/* MAP SECTION - Takes 55% of screen, or full screen when expanded */}
+    <NatureBackground variant="utah" overlay overlayOpacity={0.22} animated>
       <View
         style={[
-          styles.mapSection,
-          isMapExpanded && [
-            styles.mapSectionExpanded,
-            { height: SCREEN_HEIGHT, paddingTop: insets.top },
-          ],
+          styles.screenContainer,
+          { paddingTop: isMapExpanded ? 0 : insets.top },
         ]}
+        pointerEvents="box-none"
       >
-        <View style={styles.mapArea}>
-          {/* Dynamic Weather Overlay */}
-          {weatherData && (
-            <DynamicWeatherOverlay
-              data={weatherData}
-              visible={showWeatherOverlay}
-            />
-          )}
+        {/* MAP SECTION - Takes 55% of screen, or full screen when expanded */}
+        <View
+          style={[
+            styles.mapSection,
+            isMapExpanded && [
+              styles.mapSectionExpanded,
+              { height: SCREEN_HEIGHT, paddingTop: insets.top },
+            ],
+          ]}
+        >
+          <View style={styles.mapArea} pointerEvents="box-none">
+            {/* Dynamic Weather Overlay */}
+            {weatherData && (
+              <DynamicWeatherOverlay
+                data={weatherData}
+                visible={showWeatherOverlay}
+              />
+            )}
 
-          {/* Map Component - Google Maps on native, placeholder on web */}
-          <NativeMap
-            ref={mapRef}
-            region={mapRegion}
-            onRegionChange={setMapRegion}
-            markers={[
-              ...markers,
-              ...droppedPins.map((pin) => ({
-                id: pin.id,
-                type: "pin" as const,
-                latitude: pin.latitude,
-                longitude: pin.longitude,
-                name: pin.title,
-                title: pin.title,
-                isDroppedPin: true,
-              })),
-            ]}
-            onMarkerPress={handleMarkerPress}
-            showUserLocation={!isGhostMode}
-            ghostModeMarker={isGhostMode ? mapCenter : null}
-            userLocation={userLocation}
-          />
+            {/* Map Component - Native module only in custom/dev builds; otherwise show a safe placeholder. */}
+            {(() => {
+              const MapViewComponent = MapComponent;
 
-          {/* ONLY ESSENTIAL OVERLAYS ON MAP */}
-          {/* Expand/Collapse Button - Top Right */}
-          <TouchableOpacity
-            style={styles.expandButton}
-            onPress={() => setIsMapExpanded(!isMapExpanded)}
-          >
-            <Ionicons
-              name={isMapExpanded ? "contract" : "expand"}
-              size={22}
-              color="#FFFFFF"
-            />
-          </TouchableOpacity>
+              if (!MapViewComponent) {
+                return (
+                  <BlurView
+                    intensity={90}
+                    tint="light"
+                    style={styles.mapCalibrationWrapper}
+                  >
+                    <View style={styles.mapCalibrationCard}>
+                      <Text style={styles.mapCalibrationText}>
+                        {mapLoadFailed
+                          ? "Nomad Offline — Checking Connection"
+                          : "Calibrating Instruments..."}
+                      </Text>
+                      {!mapLoadFailed ? (
+                        <ActivityIndicator
+                          style={styles.mapCalibrationSpinner}
+                          size="small"
+                          color="rgba(255, 255, 255, 0.95)"
+                        />
+                      ) : null}
+                      {mapLoadFailed ? (
+                        <TouchableOpacity
+                          style={styles.mapRetryButton}
+                          onPress={loadMap}
+                        >
+                          <Text style={styles.mapRetryText}>Try Again</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </BlurView>
+                );
+              }
 
-          {/* Live Weather Widget - Bottom Right (Tappable for detailed forecast) */}
-          {liveWeather ? (
+              return (
+                <ErrorBoundary
+                  FallbackComponent={MapErrorFallback}
+                  onError={(error) => {
+                    console.warn("Map render error:", error);
+                    setMapLoadFailed(true);
+                  }}
+                >
+                  <MapViewComponent
+                    ref={mapRef}
+                    region={mapRegion}
+                    onRegionChange={setMapRegion}
+                    pointerEvents="none"
+                    markers={[
+                      ...markers,
+                      ...droppedPins.map((pin) => ({
+                        id: pin.id,
+                        type: "pin" as const,
+                        latitude: pin.latitude,
+                        longitude: pin.longitude,
+                        name: pin.title,
+                        title: pin.title,
+                        isDroppedPin: true,
+                      })),
+                    ]}
+                    onMarkerPress={handleMarkerPress}
+                    showUserLocation={!isGhostMode}
+                    ghostModeMarker={isGhostMode ? mapCenter : null}
+                    userLocation={userLocation}
+                    lowDataMode={isLowDataMode}
+                  />
+                  {/* map status badge removed per stability fixes */}
+                  {/* map status footer removed per stability fixes */}
+                </ErrorBoundary>
+              );
+            })()}
+
+            {/* ONLY ESSENTIAL OVERLAYS ON MAP */}
+            {/* Expand/Collapse Button - Top Right */}
             <TouchableOpacity
-              style={styles.liveWeatherWidget}
-              onPress={() => {
-                const loc = userLocation || mapCenter;
-                setWeatherLocation(loc);
-                setShowWeatherDetail(true);
-              }}
+              style={styles.expandButton}
+              onPress={() => setIsMapExpanded(!isMapExpanded)}
+            >
+              <Ionicons
+                name={isMapExpanded ? "contract" : "expand"}
+                size={22}
+                color="#FFFFFF"
+              />
+            </TouchableOpacity>
+
+            {/* Live Weather Widget - Bottom Right (Tappable for detailed forecast) */}
+            {liveWeather ? (
+              <TouchableOpacity
+                style={styles.liveWeatherWidget}
+                onPress={() => {
+                  const loc = userLocation || mapCenter;
+                  setWeatherLocation(loc);
+                  setShowWeatherDetail(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={
+                    liveWeather.condition === "Clear"
+                      ? "sunny"
+                      : liveWeather.condition === "Clouds"
+                        ? "cloudy"
+                        : liveWeather.condition === "Rain"
+                          ? "rainy"
+                          : liveWeather.condition === "Snow"
+                            ? "snow"
+                            : liveWeather.condition === "Thunderstorm"
+                              ? "thunderstorm"
+                              : "partly-sunny"
+                  }
+                  size={20}
+                  color={colors.sunsetOrange[500]}
+                />
+                {liveWeather.temperature > 0 ? (
+                  <Text style={styles.liveWeatherTemp}>
+                    {liveWeather.temperature}°F
+                  </Text>
+                ) : null}
+                <Text style={styles.liveWeatherCondition}>
+                  {liveWeather.description}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.liveWeatherWidget}>
+                <ActivityIndicator
+                  size="small"
+                  color={colors.sunsetOrange[500]}
+                />
+                <Text style={styles.liveWeatherCondition}>
+                  Loading weather...
+                </Text>
+              </View>
+            )}
+
+            {/* Recenter Button - Bottom Right */}
+            <TouchableOpacity
+              style={styles.recenterButton}
+              onPress={handleRecenter}
+              disabled={isLocating}
+            >
+              {isLocating ? (
+                <ActivityIndicator size="small" color="#2C2C2C" />
+              ) : (
+                <Ionicons name="locate" size={20} color="#2C2C2C" />
+              )}
+            </TouchableOpacity>
+
+            {/* Ghost Mode Indicator (when active) */}
+            {isGhostMode && (
+              <View style={styles.ghostModeIndicatorCompact}>
+                <Ionicons
+                  name="eye-off"
+                  size={16}
+                  color={colors.text.inverse}
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* CONTROLS SECTION - Below Map (hidden when expanded) */}
+        {!isMapExpanded && (
+          <ScrollView
+            style={styles.controlsSection}
+            contentContainerStyle={styles.controlsContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Mode Selector - Compact Horizontal */}
+            <View style={styles.modeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  activeMode === "friends" && styles.modeButtonActiveFriends,
+                ]}
+                onPress={() => changeMapMode("friends")}
+              >
+                <Ionicons
+                  name="people"
+                  size={16}
+                  color={activeMode === "friends" ? "#FFFFFF" : "#4A4A4A"}
+                />
+                <Text
+                  style={[
+                    styles.modeLabel,
+                    activeMode === "friends" && styles.modeLabelActive,
+                  ]}
+                >
+                  Friends
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  activeMode === "builder" && styles.modeButtonActiveBuilder,
+                ]}
+                onPress={() => changeMapMode("builder")}
+              >
+                <Ionicons
+                  name="construct"
+                  size={16}
+                  color={activeMode === "builder" ? "#FFFFFF" : "#4A4A4A"}
+                />
+                <Text
+                  style={[
+                    styles.modeLabel,
+                    activeMode === "builder" && styles.modeLabelActive,
+                  ]}
+                >
+                  Builder
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Smart Features Row */}
+            <View style={styles.smartFeaturesRow}>
+              <TouchableOpacity
+                style={styles.featureButton}
+                onPress={handleLookAhead}
+              >
+                <Ionicons name="radio-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.featureButtonText}>Look Ahead</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.featureButton, styles.featureButtonPrimary]}
+                onPress={handleSmartRoute}
+              >
+                <Ionicons name="map-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.featureButtonText}>Smart Route</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Discover Banner */}
+            <View style={styles.discoverBanner}>
+              <Ionicons
+                name={activeMode === "friends" ? "compass" : "construct"}
+                size={18}
+                color="#2C2C2C"
+              />
+              <Text style={styles.discoverText}>
+                {activeMode === "friends"
+                  ? "Discover travelers and nearby events"
+                  : "Find skilled builders and mechanics"}
+              </Text>
+            </View>
+
+            {/* Weather Alert (if any) - Compact inline */}
+            {showWeatherAlerts &&
+              weatherChanges.length > 0 &&
+              currentAlertIndex < weatherChanges.length && (
+                <TouchableOpacity
+                  style={styles.inlineWeatherAlert}
+                  onPress={() => setShowWeatherAlerts(false)}
+                >
+                  <Ionicons name="warning" size={16} color="#FF6B35" />
+                  <Text style={styles.inlineAlertText} numberOfLines={1}>
+                    {weatherChanges[currentAlertIndex].currentCondition}{" "}
+                    expected - {weatherChanges[currentAlertIndex].severity}
+                  </Text>
+                  <Ionicons name="close" size={14} color="#666" />
+                </TouchableOpacity>
+              )}
+
+            {/* Nearby Activities - Compact Cards */}
+            <View pointerEvents="box-none" style={styles.activitiesSection}>
+              <View style={styles.activitiesHeader}>
+                <Text style={styles.activitiesTitle}>
+                  {activeMode === "builder"
+                    ? "Nearby Builders"
+                    : "Nearby Activities"}
+                </Text>
+                <TouchableOpacity onPress={() => setShowEvents(!showEvents)}>
+                  <Ionicons
+                    name={showEvents ? "chevron-down" : "chevron-up"}
+                    size={18}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {showEvents && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.activitiesScroll}
+                >
+                  {nearbyEvents.map((event) => (
+                    <TouchableOpacity
+                      key={event.id}
+                      style={styles.activityCard}
+                      onPress={() => {
+                        // Ghost Hosting logic: show exact location only if user is host or approved
+                        const isHost = event.hostId === currentUserId;
+                        const isApproved =
+                          event.approvedGuests?.includes(currentUserId) ||
+                          false;
+                        const showExactLocation = isHost || isApproved;
+
+                        const eventMarker: MapMarkerData = {
+                          id: event.id,
+                          type: "campfire",
+                          name: event.title,
+                          latitude: showExactLocation
+                            ? event.latitude
+                            : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
+                          longitude: showExactLocation
+                            ? event.longitude
+                            : event.longitude + (Math.random() - 0.5) * 0.01,
+                          eventName: event.title,
+                          eventType: event.type,
+                          attendees: event.attendees,
+                          maxAttendees: event.maxAttendees,
+                          participants: event.attendees,
+                          host: event.host,
+                          eventTime: event.time,
+                          time: event.time,
+                          subtitle: event.location,
+                          location: event.location,
+                          description: event.description,
+                          imageUrl: event.imageUrl,
+                        };
+                        setSelectedMarker(eventMarker);
+                        setSheetVisible(true);
+                      }}
+                    >
+                      <View style={styles.activityImageWrap}>
+                        <Image
+                          source={{ uri: event.imageUrl }}
+                          style={styles.activityImage}
+                          contentFit="cover"
+                        />
+                        <View
+                          style={[
+                            styles.activityTypeBadge,
+                            {
+                              backgroundColor:
+                                event.type === "social"
+                                  ? colors.ember[500]
+                                  : colors.moss[500],
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={event.type === "social" ? "flame" : "walk"}
+                            size={10}
+                            color="#FFFFFF"
+                          />
+                        </View>
+                      </View>
+                      <Text style={styles.activityCardTitle} numberOfLines={1}>
+                        {event.title}
+                      </Text>
+                      <Text style={styles.activityCardMeta}>
+                        {event.attendees} going
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Drop a Pin Button */}
+            <TouchableOpacity
+              style={styles.dropPinButton}
+              onPress={handleDropPin}
               activeOpacity={0.8}
             >
               <Ionicons
-                name={
-                  liveWeather.condition === "Clear"
-                    ? "sunny"
-                    : liveWeather.condition === "Clouds"
-                      ? "cloudy"
-                      : liveWeather.condition === "Rain"
-                        ? "rainy"
-                        : liveWeather.condition === "Snow"
-                          ? "snow"
-                          : liveWeather.condition === "Thunderstorm"
-                            ? "thunderstorm"
-                            : "partly-sunny"
-                }
-                size={20}
-                color={colors.sunsetOrange[500]}
+                name={activeMode === "builder" ? "search" : "location"}
+                size={18}
+                color="#FFFFFF"
               />
-              {liveWeather.temperature > 0 ? (
-                <Text style={styles.liveWeatherTemp}>
-                  {liveWeather.temperature}°F
-                </Text>
-              ) : null}
-              <Text style={styles.liveWeatherCondition}>
-                {liveWeather.description}
+              <Text style={styles.dropPinText}>
+                {activeMode === "builder" ? "Find Builder" : "Drop a Pin"}
               </Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.liveWeatherWidget}>
-              <ActivityIndicator
-                size="small"
-                color={colors.sunsetOrange[500]}
-              />
-              <Text style={styles.liveWeatherCondition}>
-                Loading weather...
-              </Text>
-            </View>
-          )}
+          </ScrollView>
+        )}
 
-          {/* Recenter Button - Bottom Right */}
-          <TouchableOpacity
-            style={styles.recenterButton}
-            onPress={handleRecenter}
-            disabled={isLocating}
-          >
-            {isLocating ? (
-              <ActivityIndicator size="small" color="#2C2C2C" />
-            ) : (
-              <Ionicons name="locate" size={20} color="#2C2C2C" />
-            )}
-          </TouchableOpacity>
-
-          {/* Ghost Mode Indicator (when active) */}
-          {isGhostMode && (
-            <View style={styles.ghostModeIndicatorCompact}>
-              <Ionicons name="eye-off" size={16} color={colors.text.inverse} />
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* CONTROLS SECTION - Below Map (hidden when expanded) */}
-      {!isMapExpanded && (
-        <ScrollView
-          style={styles.controlsSection}
-          contentContainerStyle={styles.controlsContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Mode Selector - Compact Horizontal */}
-          <View style={styles.modeSelector}>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                activeMode === "friends" && styles.modeButtonActiveFriends,
-              ]}
-              onPress={() => setActiveMode("friends")}
-            >
-              <Ionicons
-                name="people"
-                size={16}
-                color={activeMode === "friends" ? "#FFFFFF" : "#4A4A4A"}
-              />
-              <Text
-                style={[
-                  styles.modeLabel,
-                  activeMode === "friends" && styles.modeLabelActive,
-                ]}
-              >
-                Friends
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                activeMode === "builder" && styles.modeButtonActiveBuilder,
-              ]}
-              onPress={() => setActiveMode("builder")}
-            >
-              <Ionicons
-                name="construct"
-                size={16}
-                color={activeMode === "builder" ? "#FFFFFF" : "#4A4A4A"}
-              />
-              <Text
-                style={[
-                  styles.modeLabel,
-                  activeMode === "builder" && styles.modeLabelActive,
-                ]}
-              >
-                Builder
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Smart Features Row */}
-          <View style={styles.smartFeaturesRow}>
-            <TouchableOpacity
-              style={styles.featureButton}
-              onPress={handleLookAhead}
-            >
-              <Ionicons name="radio-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.featureButtonText}>Look Ahead</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.featureButton, styles.featureButtonPrimary]}
-              onPress={handleSmartRoute}
-            >
-              <Ionicons name="map-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.featureButtonText}>Smart Route</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Discover Banner */}
-          <View style={styles.discoverBanner}>
-            <Ionicons
-              name={activeMode === "friends" ? "compass" : "construct"}
-              size={18}
-              color="#2C2C2C"
-            />
-            <Text style={styles.discoverText}>
-              {activeMode === "friends"
-                ? "Discover travelers and nearby events"
-                : "Find skilled builders and mechanics"}
-            </Text>
-          </View>
-
-          {/* Weather Alert (if any) - Compact inline */}
-          {showWeatherAlerts &&
-            weatherChanges.length > 0 &&
-            currentAlertIndex < weatherChanges.length && (
-              <TouchableOpacity
-                style={styles.inlineWeatherAlert}
-                onPress={() => setShowWeatherAlerts(false)}
-              >
-                <Ionicons name="warning" size={16} color="#FF6B35" />
-                <Text style={styles.inlineAlertText} numberOfLines={1}>
-                  {weatherChanges[currentAlertIndex].currentCondition} expected
-                  - {weatherChanges[currentAlertIndex].severity}
-                </Text>
-                <Ionicons name="close" size={14} color="#666" />
-              </TouchableOpacity>
-            )}
-
-          {/* Nearby Activities - Compact Cards */}
-          <View style={styles.activitiesSection}>
-            <View style={styles.activitiesHeader}>
-              <Text style={styles.activitiesTitle}>
-                {activeMode === "builder"
-                  ? "Nearby Builders"
-                  : "Nearby Activities"}
-              </Text>
-              <TouchableOpacity onPress={() => setShowEvents(!showEvents)}>
-                <Ionicons
-                  name={showEvents ? "chevron-down" : "chevron-up"}
-                  size={18}
-                  color="#666"
-                />
-              </TouchableOpacity>
-            </View>
-
-            {showEvents && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.activitiesScroll}
-              >
-                {nearbyEvents.map((event) => (
-                  <TouchableOpacity
-                    key={event.id}
-                    style={styles.activityCard}
-                    onPress={() => {
-                      // Ghost Hosting logic: show exact location only if user is host or approved
-                      const isHost = event.hostId === currentUserId;
-                      const isApproved =
-                        event.approvedGuests?.includes(currentUserId) || false;
-                      const showExactLocation = isHost || isApproved;
-
-                      const eventMarker: MapMarkerData = {
-                        id: event.id,
-                        type: "campfire",
-                        name: event.title,
-                        latitude: showExactLocation
-                          ? event.latitude
-                          : event.latitude + (Math.random() - 0.5) * 0.01, // Slight randomization for privacy
-                        longitude: showExactLocation
-                          ? event.longitude
-                          : event.longitude + (Math.random() - 0.5) * 0.01,
-                        eventName: event.title,
-                        eventType: event.type,
-                        attendees: event.attendees,
-                        maxAttendees: event.maxAttendees,
-                        participants: event.attendees,
-                        host: event.host,
-                        eventTime: event.time,
-                        time: event.time,
-                        subtitle: event.location,
-                        location: event.location,
-                        description: event.description,
-                        imageUrl: event.imageUrl,
-                      };
-                      setSelectedMarker(eventMarker);
-                      setSheetVisible(true);
-                    }}
-                  >
-                    <View style={styles.activityImageWrap}>
-                      <Image
-                        source={{ uri: event.imageUrl }}
-                        style={styles.activityImage}
-                        contentFit="cover"
-                      />
-                      <View
-                        style={[
-                          styles.activityTypeBadge,
-                          {
-                            backgroundColor:
-                              event.type === "social"
-                                ? colors.ember[500]
-                                : colors.moss[500],
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={event.type === "social" ? "flame" : "walk"}
-                          size={10}
-                          color="#FFFFFF"
-                        />
-                      </View>
-                    </View>
-                    <Text style={styles.activityCardTitle} numberOfLines={1}>
-                      {event.title}
-                    </Text>
-                    <Text style={styles.activityCardMeta}>
-                      {event.attendees} going
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Drop a Pin Button */}
-          <TouchableOpacity
-            style={styles.dropPinButton}
-            onPress={handleDropPin}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={activeMode === "builder" ? "search" : "location"}
-              size={18}
-              color="#FFFFFF"
-            />
-            <Text style={styles.dropPinText}>
-              {activeMode === "builder" ? "Find Builder" : "Drop a Pin"}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-
-      {/* Enhanced Liquid Sheet for marker details */}
-      {selectedMarker && (
-        <MapSocialSheet
-          visible={sheetVisible}
-          marker={selectedMarker}
-          onClose={handleSheetClose}
-          onAskToJoin={handleAskToJoin}
-          onViewProfile={handleViewProfile}
-          onMessage={handleMessage}
-          onHire={handleHire}
-          currentMode={activeMode}
-        />
-      )}
-
-      {/* AI Route Planner Modal */}
-      <AIRoutePlanner
-        visible={routePlannerVisible}
-        onClose={() => setRoutePlannerVisible(false)}
-        onRouteSelect={handleRouteSelect}
-        currentLocation={{
-          latitude: mapboxConfig.defaultCenter.latitude,
-          longitude: mapboxConfig.defaultCenter.longitude,
-        }}
-        destination={{
-          latitude: 40.7128,
-          longitude: -111.891,
-          name: "Salt Lake City, UT",
-        }}
-      />
-
-      {/* Smart Route Weather Panel - shown when a route is active */}
-      {activeSmartRoute ? (
-        <View style={styles.smartRouteWeatherContainer}>
-          <SmartRouteWeather
-            route={activeSmartRoute}
-            onClose={handleClearRoute}
-            onWaypointSelect={(waypoint, index) => {
-              console.log(
-                "Selected waypoint:",
-                waypoint.name,
-                "at index",
-                index,
-              );
-            }}
+        {/* Enhanced Liquid Sheet for marker details */}
+        {selectedMarker && (
+          <MapSocialSheet
+            visible={sheetVisible}
+            marker={selectedMarker}
+            onClose={handleSheetClose}
+            onAskToJoin={handleAskToJoin}
+            onViewProfile={handleViewProfile}
+            onMessage={handleMessage}
+            onHire={handleHire}
+            currentMode={activeMode}
           />
-        </View>
-      ) : null}
+        )}
 
-      {/* Advanced Radar Look Ahead Modal */}
-      <LookAheadRadar
-        visible={lookAheadVisible}
-        onClose={() => setLookAheadVisible(false)}
-        isPremium={isPremium}
-        onUpgrade={() => {
-          setPremium(true);
-          setLookAheadVisible(false);
-          setTimeout(() => setLookAheadVisible(true), 300);
-        }}
-      />
-
-      {/* Weather Detail Modal */}
-      {weatherLocation ? (
-        <WeatherDetailModal
-          visible={showWeatherDetail}
-          onClose={() => setShowWeatherDetail(false)}
-          latitude={weatherLocation.latitude}
-          longitude={weatherLocation.longitude}
+        {/* AI Route Planner Modal */}
+        <AIRoutePlanner
+          visible={routePlannerVisible}
+          onClose={() => setRoutePlannerVisible(false)}
+          onRouteSelect={handleRouteSelect}
+          currentLocation={{
+            latitude: mapboxConfig.defaultCenter.latitude,
+            longitude: mapboxConfig.defaultCenter.longitude,
+          }}
+          destination={{
+            latitude: 40.7128,
+            longitude: -111.891,
+            name: "Salt Lake City, UT",
+          }}
         />
-      ) : null}
 
-      {/* Cluster Vibe Sheet */}
-      {selectedCluster && (
-        <ClusterVibeSheet
-          visible={clusterSheetVisible}
-          cluster={selectedCluster}
-          onClose={handleClusterSheetClose}
-          onMemberPress={handleClusterMarkerSelect}
-          currentMode={activeMode}
+        {/* Smart Route Weather Panel - shown when a route is active */}
+        {activeSmartRoute ? (
+          <View style={styles.smartRouteWeatherContainer}>
+            <SmartRouteWeather
+              route={activeSmartRoute}
+              onClose={handleClearRoute}
+              onWaypointSelect={(waypoint, index) => {
+                console.log(
+                  "Selected waypoint:",
+                  waypoint.name,
+                  "at index",
+                  index,
+                );
+              }}
+            />
+          </View>
+        ) : null}
+
+        {/* Advanced Radar Look Ahead Modal */}
+        <LookAheadRadar
+          visible={lookAheadVisible}
+          onClose={() => setLookAheadVisible(false)}
+          isPremium={isPremium}
+          onUpgrade={() => {
+            setPremium(true);
+            setLookAheadVisible(false);
+            setTimeout(() => setLookAheadVisible(true), 300);
+          }}
         />
-      )}
-    </View>
+
+        {/* Weather Detail Modal */}
+        {weatherLocation ? (
+          <WeatherDetailModal
+            visible={showWeatherDetail}
+            onClose={() => setShowWeatherDetail(false)}
+            latitude={weatherLocation.latitude}
+            longitude={weatherLocation.longitude}
+          />
+        ) : null}
+
+        {/* Cluster Vibe Sheet */}
+        {selectedCluster && (
+          <ClusterVibeSheet
+            visible={clusterSheetVisible}
+            cluster={selectedCluster}
+            onClose={handleClusterSheetClose}
+            onMemberPress={handleClusterMarkerSelect}
+            currentMode={activeMode}
+          />
+        )}
+      </View>
+    </NatureBackground>
   );
 }
 
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: "#F5EFE6",
+    backgroundColor: "transparent",
   },
   mapSection: {
     height: SCREEN_HEIGHT * 0.55,
@@ -1188,7 +1427,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: SCREEN_HEIGHT,
-    zIndex: 1000,
+    zIndex: 1,
     borderRadius: 0,
   },
   mapArea: {
@@ -1257,6 +1496,115 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.body,
     color: colors.text.secondary,
     maxWidth: 80,
+  },
+  mapCalibrationWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  /* mapStatusBadge styles removed per stability fixes */
+  /* mapStatusFooter styles removed per stability fixes */
+  mapCalibrationCard: {
+    width: "100%",
+    padding: spacing.lg,
+    borderRadius: borderRadius["2xl"],
+    borderWidth: 0.5,
+    borderColor: "rgba(255, 255, 255, 0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  mapCalibrationText: {
+    fontFamily: typography.fontFamily.bodySemiBold,
+    color: "#FFFFFF",
+    fontSize: typography.fontSize.base,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  mapCalibrationSpinner: {
+    marginTop: spacing.sm,
+  },
+  mapFallback: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: borderRadius.liquid,
+    padding: spacing.lg,
+  },
+  mapFallbackText: {
+    textAlign: "center",
+    color: colors.bark[600],
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.sm,
+    marginBottom: spacing.sm,
+  },
+  mapRetryText: {
+    color: colors.bark[900],
+    fontFamily: typography.fontFamily.bodySemiBold,
+    fontSize: typography.fontSize.sm,
+  },
+  glassmorphismCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: borderRadius.liquidLg,
+    padding: spacing.lg,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    backdropFilter: "blur(10px)",
+  },
+  errorIconContainer: {
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  mapFallbackTitle: {
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.heading,
+    color: colors.bark[900],
+    marginBottom: spacing.md,
+    textAlign: "center",
+  },
+  mapFallbackSubtext: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.body,
+    color: colors.bark[400],
+    marginBottom: spacing.lg,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  mapRetryButton: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.liquid,
+    backgroundColor: colors.ember[500],
+    marginBottom: spacing.md,
+    width: "100%",
+  },
+  mapOfflineContinueButton: {
+    alignSelf: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.liquid,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.bark[300],
+    width: "100%",
+    alignItems: "center",
+  },
+  mapOfflineContinueText: {
+    color: colors.bark[600],
+    fontFamily: typography.fontFamily.bodySemiBold,
+    fontSize: typography.fontSize.sm,
+    textAlign: "center",
   },
   ghostModeIndicatorCompact: {
     position: "absolute",
@@ -1522,6 +1870,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     height: "100%",
+    zIndex: 1,
   },
   terrainFeature: {
     position: "absolute",

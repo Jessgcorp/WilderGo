@@ -8,8 +8,10 @@ import {
   Platform,
   ScrollView,
   TextInput,
+  Linking,
+  useWindowDimensions,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, spacing, borderRadius } from "@/constants/theme";
@@ -24,9 +26,13 @@ import {
   REVIEWER_ACCOUNT_PASSWORD,
 } from "@/lib/reviewerBypass";
 
+const PRIVACY_POLICY_URL = "https://wildergoapp.com/privacy-policy";
+
 export default function CreateAccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const horizontalPadding = windowWidth <= 360 ? spacing.lg : spacing.xl;
   const { signUp, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,40 +44,43 @@ export default function CreateAccountScreen() {
   const params = useLocalSearchParams<{ autoReviewerLogin?: string }>();
 
   useEffect(() => {
-    if (params.autoReviewerLogin === "true") {
-      setIsSignIn(true);
-      setEmail(REVIEWER_ACCOUNT_EMAIL);
-      setPassword(REVIEWER_ACCOUNT_PASSWORD);
-      setError("");
+    const initReviewerLogin = async () => {
+      if (params.autoReviewerLogin === "true") {
+        setIsSignIn(true);
+        setEmail(REVIEWER_ACCOUNT_EMAIL);
+        setPassword(REVIEWER_ACCOUNT_PASSWORD);
+        setError("");
 
-      const timer = setTimeout(() => {
-        handleCreateAccount();
-      }, 650);
+        const result = await signIn(
+          REVIEWER_ACCOUNT_EMAIL,
+          REVIEWER_ACCOUNT_PASSWORD,
+        );
 
-      return () => clearTimeout(timer);
-    }
+        if (result.success) {
+          router.replace("/dashboard" as any);
+        }
+      }
+    };
 
-    return undefined;
-  }, [params.autoReviewerLogin]);
+    initReviewerLogin();
+  }, [params.autoReviewerLogin, router, signIn]);
 
   const handleSignIn = async () => {
-    if (email.trim().toLowerCase() === REVIEWER_ACCOUNT_EMAIL) {
-      return router.replace("/(tabs)");
-    }
-
     const normalizedEmail = email.trim().toLowerCase();
     const result = await signIn(normalizedEmail, password);
     console.log(`[CREATE ACCOUNT] signIn result:`, JSON.stringify(result));
     if (result.success) {
-      console.log(
-        `[CREATE ACCOUNT] signIn succeeded, auto-navigating to home`,
-      );
-      router.replace("/(tabs)");
+      console.log("[CREATE ACCOUNT] signIn succeeded, auto-navigating to dashboard");
+      router.replace("/dashboard" as any);
       return;
     }
 
     console.log(`[CREATE ACCOUNT] signIn failed: ${result.message}`);
     setError(result.message || "Sign in failed");
+  };
+
+  const handleReviewerAccess = async () => {
+    router.replace("/(tabs)/explore");
   };
 
   const handleCreateAccount = async () => {
@@ -85,9 +94,14 @@ export default function CreateAccountScreen() {
 
     if (isReviewerAccount && !isSignIn) {
       console.log(
-        `[CREATE ACCOUNT] Reviewer bypass activated for ${normalizedEmail}: navigating to home`,
+        `[CREATE ACCOUNT] Reviewer bypass activated for ${normalizedEmail}: signing in and navigating to dashboard`,
       );
-      router.replace("/(tabs)");
+      const result = await signIn(normalizedEmail, password);
+      if (result.success) {
+        router.replace("/dashboard" as any);
+      } else {
+        setError(result.message || "Reviewer login failed");
+      }
       return;
     }
 
@@ -131,9 +145,9 @@ export default function CreateAccountScreen() {
         console.log(`[CREATE ACCOUNT] signIn result:`, JSON.stringify(result));
         if (result.success) {
           console.log(
-            `[CREATE ACCOUNT] signIn succeeded, auto-navigating to home`,
+            "[CREATE ACCOUNT] signIn succeeded, auto-navigating to dashboard",
           );
-          router.replace("/(tabs)");
+          router.replace("/dashboard" as any);
           return;
         }
 
@@ -147,7 +161,7 @@ export default function CreateAccountScreen() {
           console.log(
             `[CREATE ACCOUNT] signUp succeeded, auto-logging in and navigating to home`,
           );
-          router.replace("/(tabs)");
+          router.replace("/dashboard" as any);
           return;
         }
 
@@ -163,7 +177,7 @@ export default function CreateAccountScreen() {
   };
 
   return (
-    <NatureBackground variant="forest" overlay overlayOpacity={0.45}>
+    <NatureBackground variant="utah" overlay overlayOpacity={0.55}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -173,7 +187,8 @@ export default function CreateAccountScreen() {
             styles.scrollContent,
             {
               paddingTop: insets.top + spacing.lg,
-              paddingBottom: insets.bottom + spacing.xl,
+              paddingBottom: insets.bottom + spacing.xl + 100,
+              paddingHorizontal: horizontalPadding,
             },
           ]}
           keyboardShouldPersistTaps="handled"
@@ -193,12 +208,22 @@ export default function CreateAccountScreen() {
             </Text>
             <Text style={styles.subtitle}>
               {isSignIn
-                ? "Sign in to continue your journey"
-                : "Join the WilderGo nomadic community"}
+                ? "Sign in with email and password to continue your journey"
+                : "Create your WilderGo account using email and password"}
+            </Text>
+            <Text style={styles.smallNote}>
+              Please use your email and password to sign in.
+            </Text>
+            <Text style={styles.smallNote}>
+              Apple Sign-In is not supported.
             </Text>
           </View>
 
-          <GlassCard variant="frost" padding="lg" style={styles.formCard}>
+          <GlassCard
+            variant="frost"
+            padding="lg"
+            style={[styles.formCard, styles.warmCard]}
+          >
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.inputContainer}>
@@ -303,6 +328,7 @@ export default function CreateAccountScreen() {
               variant="ember"
               size="lg"
               fullWidth
+              style={styles.primaryButton}
               disabled={loading}
               testID="button-create-account"
             />
@@ -355,6 +381,26 @@ export default function CreateAccountScreen() {
               </Text>
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+            style={styles.privacyLink}
+            testID="button-privacy-policy"
+          >
+            <Text style={styles.privacyLinkText}>Privacy Policy</Text>
+          </TouchableOpacity>
+
+          <View pointerEvents="box-none">
+            <Link href="/(tabs)/explore" asChild>
+              <TouchableOpacity
+                style={styles.reviewerAccessButton}
+                disabled={loading}
+                testID="button-reviewer-access"
+              >
+                <Text style={styles.reviewerAccessText}>Reviewer Access</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </NatureBackground>
@@ -399,6 +445,14 @@ const styles = StyleSheet.create({
   formCard: {
     borderRadius: borderRadius["2xl"],
   },
+  warmCard: {
+    backgroundColor: "rgba(233, 150, 122, 0.16)",
+    borderColor: "rgba(210, 105, 30, 0.18)",
+  },
+  primaryButton: {
+    backgroundColor: "#8B4513",
+    borderColor: "#8B4513",
+  },
   inputGroup: {
     marginBottom: spacing.lg,
   },
@@ -434,7 +488,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.ember[500] + "15",
+    backgroundColor: "rgba(233, 150, 122, 0.14)",
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.lg,
@@ -443,7 +497,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.fontSize.sm,
     fontFamily: typography.fontFamily.body,
-    color: colors.ember[600],
+    color: "#D2691E",
     flex: 1,
   },
   safetyNotice: {
@@ -463,7 +517,7 @@ const styles = StyleSheet.create({
   reviewerInfo: {
     marginTop: spacing.lg,
     padding: spacing.md,
-    backgroundColor: colors.bark[50],
+    backgroundColor: "rgba(233, 150, 122, 0.12)",
     borderRadius: borderRadius.lg,
   },
   reviewerHeading: {
@@ -487,6 +541,23 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: borderRadius.md,
   },
+  privacyLink: {
+    marginTop: spacing.lg,
+    alignSelf: "center",
+  },
+  privacyLinkText: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.bodySemiBold,
+    color: "#E9967A",
+    textDecorationLine: "underline",
+  },
+  smallNote: {
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.body,
+    color: colors.bark[300],
+    marginTop: spacing.sm,
+    textAlign: "center",
+  },
   switchButton: {
     alignItems: "center",
     marginTop: spacing.lg,
@@ -495,10 +566,26 @@ const styles = StyleSheet.create({
   switchText: {
     fontSize: typography.fontSize.md,
     fontFamily: typography.fontFamily.body,
-    color: colors.bark[300],
+    color: colors.text.inverse,
   },
   switchTextBold: {
     fontFamily: typography.fontFamily.bodySemiBold,
-    color: colors.ember[400],
+    color: "#D2691E",
+  },
+  reviewerAccessButton: {
+    marginTop: spacing.lg,
+    alignSelf: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: "rgba(210, 105, 30, 0.14)",
+    borderWidth: 1,
+    borderColor: "#D2691E",
+    opacity: 0.98,
+  },
+  reviewerAccessText: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamily.body,
+    color: "#F5EFE6",
   },
 });

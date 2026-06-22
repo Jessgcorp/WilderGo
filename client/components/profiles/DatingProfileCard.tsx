@@ -10,14 +10,13 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import { colors, typography, spacing, borderRadius } from "@/constants/theme";
+import { typography, spacing } from "@/constants/theme";
 
 import sceneDesert from "../../../assets/images/scenes/scene-desert-sunset.png";
 import sceneMountain from "../../../assets/images/scenes/scene-mountain-lake.png";
 import sceneCoastal from "../../../assets/images/scenes/scene-coastal-road.png";
-import sceneRedwood from "../../../assets/images/scenes/scene-redwood-forest.png";
 
-const sceneImages = [sceneDesert, sceneMountain, sceneCoastal, sceneRedwood];
+const sceneImages = [sceneDesert, sceneMountain, sceneCoastal];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -236,7 +235,7 @@ export const DatingProfileCard: React.FC<DatingProfileCardProps> = ({
         <Feather name="truck" size={14} color={ACCENT_TEAL} />
         <Text style={styles.rigText}>{profile.rigType}</Text>
         {profile.rigName ? (
-          <Text style={styles.rigName}>"{profile.rigName}"</Text>
+          <Text style={styles.rigName}>“{profile.rigName}”</Text>
         ) : null}
       </View>
 

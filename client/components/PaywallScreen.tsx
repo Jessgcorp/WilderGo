@@ -360,7 +360,7 @@ export default function PaywallScreen({
 
   if (loading) {
     return (
-      <NatureBackground variant="forest" overlay overlayOpacity={0.5}>
+      <NatureBackground variant="utah" overlay overlayOpacity={0.5}>
         <View style={[styles.container, styles.centered]}>
           <ActivityIndicator size="large" color={colors.ember[500]} />
           <Text style={styles.loadingText}>Loading plans...</Text>
@@ -370,7 +370,7 @@ export default function PaywallScreen({
   }
 
   return (
-    <NatureBackground variant="forest" overlay overlayOpacity={0.5}>
+    <NatureBackground variant="utah" overlay overlayOpacity={0.5}>
       <PremiumSuccessModal
         visible={showSuccessModal}
         onDismiss={handleSuccessDismiss}

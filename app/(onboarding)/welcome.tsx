@@ -1,7 +1,19 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Dimensions,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
+import { Link } from "expo-router";
 import { useRouter } from "@/hooks/useRouterCompat";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -15,7 +27,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Logo } from "@/components/ui/Logo";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 
@@ -64,9 +76,10 @@ export default function WelcomeScreen() {
   }, [fadeAnim, slideAnim, logoScale, backgroundScale]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Full-Screen Background Image */}
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.backgroundContainer,
           { transform: [{ scale: backgroundScale }] },
@@ -84,16 +97,23 @@ export default function WelcomeScreen() {
       <LinearGradient
         colors={[
           "rgba(255, 255, 255, 0.05)",
-          "rgba(255, 255, 255, 0.1)",
-          "rgba(139, 90, 43, 0.25)",
-          "rgba(139, 90, 43, 0.4)",
+          "rgba(233, 150, 122, 0.16)",
+          "rgba(139, 69, 19, 0.26)",
+          "rgba(139, 69, 19, 0.45)",
         ]}
-        locations={[0, 0.3, 0.7, 1]}
+        locations={[0, 0.25, 0.65, 1]}
         style={styles.gradient}
       />
 
       {/* Content */}
-      <View style={[styles.content, { paddingTop: insets.top + spacing.xl }]}>
+      <ScrollView
+        style={[styles.content, { paddingTop: insets.top + spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + spacing.xl + 180 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Logo Section */}
         <Animated.View
           style={[styles.logoSection, { transform: [{ scale: logoScale }] }]}
@@ -118,70 +138,73 @@ export default function WelcomeScreen() {
             },
           ]}
         >
-          <GlassCard variant="frost" padding="lg" style={styles.featuresCard}>
-            <View style={styles.featureRow}>
-              <View
-                style={[
-                  styles.featureIcon,
-                  { backgroundColor: colors.moss[500] + "30" },
-                ]}
-              >
-                <Ionicons name="people" size={22} color={colors.moss[500]} />
+          <View style={styles.featureCardContainer}>
+            <GlassCard variant="frost" padding="md" style={styles.featuresCard}>
+              <View style={styles.featureRow}>
+                <View
+                  style={[
+                    styles.featureIcon,
+                    { backgroundColor: colors.moss[500] + "30" },
+                  ]}
+                >
+                  <Ionicons name="people" size={22} color={colors.moss[500]} />
+                </View>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureTitle}>Friends Mode</Text>
+                  <Text style={styles.featureText}>
+                    Find events and connect with nomads along the way
+                  </Text>
+                </View>
               </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Friends Mode</Text>
-                <Text style={styles.featureText}>
-                  Find events and connect with nomads along the way
-                </Text>
-              </View>
-            </View>
 
-            <View style={styles.featureDivider} />
+              <View style={styles.featureDivider} />
 
-            <View style={styles.featureRow}>
-              <View
-                style={[
-                  styles.featureIcon,
-                  { backgroundColor: colors.driftwood[500] + "30" },
-                ]}
-              >
-                <Ionicons
-                  name="build"
-                  size={22}
-                  color={colors.driftwood[500]}
-                />
+              <View style={styles.featureRow}>
+                <View
+                  style={[
+                    styles.featureIcon,
+                    { backgroundColor: colors.driftwood[500] + "30" },
+                  ]}
+                >
+                  <Ionicons
+                    name="build"
+                    size={22}
+                    color={colors.driftwood[500]}
+                  />
+                </View>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureTitle}>Builds Mode</Text>
+                  <Text style={styles.featureText}>
+                    Connect with van builders and share your rig journey
+                  </Text>
+                </View>
               </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Builds Mode</Text>
-                <Text style={styles.featureText}>
-                  Connect with van builders and share your rig journey
-                </Text>
-              </View>
-            </View>
 
-            <View style={styles.featureDivider} />
+              <View style={styles.featureDivider} />
 
-            <View style={styles.featureRow}>
-              <View
-                style={[
-                  styles.featureIcon,
-                  { backgroundColor: colors.ember[500] + "30" },
-                ]}
-              >
-                <Ionicons
-                  name="satellite"
-                  size={22}
-                  color={colors.ember[500]}
-                />
+              <View style={styles.featureRow}>
+                <View
+                  style={[
+                    styles.featureIcon,
+                    { backgroundColor: colors.ember[500] + "30" },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="satellite"
+                    size={22}
+                    color={colors.ember[500]}
+                  />
+                </View>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureTitle}>SOS Help</Text>
+                  <Text style={styles.featureText}>
+                    SOS capabilities to help you get help from existing nomads
+                    in the Wildergo App.
+                  </Text>
+                </View>
               </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Satellite SOS Coordination</Text>
-                <Text style={styles.featureText}>
-                  View satellite coverage zones and SOS emergency options. Service must be enabled and verified inside the app.
-                </Text>
-              </View>
-            </View>
-          </GlassCard>
+            </GlassCard>
+          </View>
         </Animated.View>
 
         {/* Spacer */}
@@ -192,14 +215,18 @@ export default function WelcomeScreen() {
           style={[
             styles.bottomSection,
             {
-              paddingBottom: insets.bottom + spacing.xl,
+              paddingBottom: insets.bottom + spacing.xl + 20,
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
             },
           ]}
         >
           {/* Premium Badge */}
-          <GlassCard variant="frost" padding="sm" style={styles.premiumBadge}>
+          <GlassCard
+            variant="frost"
+            padding="sm"
+            style={[styles.premiumBadge, styles.warmGlass]}
+          >
             <View style={styles.premiumContent}>
               <View style={styles.premiumIcon}>
                 <Ionicons
@@ -209,7 +236,7 @@ export default function WelcomeScreen() {
                 />
               </View>
               <Text style={styles.premiumText}>
-                Verified Community Members Only
+                Verified safety features for every traveler
               </Text>
             </View>
           </GlassCard>
@@ -217,10 +244,11 @@ export default function WelcomeScreen() {
           {/* CTA Button */}
           <Button
             title="Join the Convoy"
-            onPress={() => router.push("/(onboarding)/create-account")}
+            onPress={() => router.replace("/(tabs)/explore")}
             variant="ember"
             size="lg"
             fullWidth
+            style={styles.primaryButton}
             icon={
               <Ionicons
                 name="arrow-forward"
@@ -230,19 +258,31 @@ export default function WelcomeScreen() {
             }
             iconPosition="right"
           />
-
-          <Text style={styles.disclaimer}>
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </Text>
         </Animated.View>
+      </ScrollView>
+
+      <View
+        pointerEvents="box-none"
+        style={[styles.footerWrapper, { paddingBottom: insets.bottom + 10 }]}
+      >
+        <Link href="/(tabs)/explore" asChild>
+          <TouchableOpacity style={styles.reviewerButton}>
+            <Text style={styles.reviewerButtonText}>Reviewer Access</Text>
+          </TouchableOpacity>
+        </Link>
+
+        <Text style={styles.disclaimer}>
+          By continuing, you agree to our Terms of Service and Privacy Policy
+        </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: "space-between",
     backgroundColor: "#E8C5A5",
   },
   backgroundContainer: {
@@ -259,10 +299,28 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.xl,
   },
+  scrollContent: {
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+    flexGrow: 1,
+    justifyContent: "space-between",
+  },
   logoSection: {
     alignItems: "center",
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.xl,
     marginTop: spacing.xl,
+  },
+  footerContainer: {
+    width: "100%",
+    paddingHorizontal: spacing.xl,
+    backgroundColor: "transparent",
+    justifyContent: "flex-end",
+  },
+  footerWrapper: {
+    width: "100%",
+    paddingHorizontal: spacing.xl,
+    backgroundColor: "transparent",
+    justifyContent: "flex-end",
   },
   logoIcon: {
     width: 88,
@@ -311,10 +369,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   featuresWrapper: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md * 0.85,
   },
   featuresCard: {
     borderRadius: borderRadius["2xl"],
+    backgroundColor: "rgba(233, 150, 122, 0.16)",
   },
   featureRow: {
     flexDirection: "row",
@@ -346,13 +405,13 @@ const styles = StyleSheet.create({
   featureDivider: {
     height: 1,
     backgroundColor: colors.glass.border,
-    marginVertical: spacing.md,
+    marginVertical: spacing.sm * 0.85,
   },
   spacer: {
     flex: 1,
   },
   bottomSection: {
-    paddingTop: spacing.lg,
+    paddingTop: spacing.md,
   },
   premiumBadge: {
     marginBottom: spacing.xl,
@@ -368,20 +427,41 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.moss[500],
+    backgroundColor: "#D2691E",
     justifyContent: "center",
     alignItems: "center",
   },
   premiumText: {
     fontSize: typography.fontSize.sm,
     fontFamily: typography.fontFamily.bodySemiBold,
-    color: colors.moss[600],
+    color: colors.text.inverse,
   },
   disclaimer: {
     textAlign: "center",
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamily.body,
-    color: colors.bark[400],
+    color: colors.text.inverse,
     marginTop: spacing.lg,
+    opacity: 0.9,
+  },
+  featureCardContainer: {
+    transform: [{ scale: 0.985 }],
+  },
+  reviewerButton: {
+    borderWidth: 1,
+    borderColor: "#D2691E",
+    backgroundColor: "rgba(210, 105, 30, 0.08)",
+    shadowColor: "transparent",
+  },
+  reviewerButtonText: {
+    color: "#E9967A",
+  },
+  primaryButton: {
+    backgroundColor: "#8B4513",
+    borderColor: "#8B4513",
+  },
+  warmGlass: {
+    backgroundColor: "rgba(233, 150, 122, 0.16)",
+    borderColor: "rgba(210, 105, 30, 0.18)",
   },
 });

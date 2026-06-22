@@ -11,20 +11,19 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   Linking,
   Alert,
   Modal,
+  Platform,
 } from "react-native";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, typography, spacing, borderRadius } from "@/constants/theme";
 import { EmergencyCategory, EMERGENCY_CATEGORIES } from "./types";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const isSOSOfflineEnabled = Boolean(
   Constants.expoConfig?.extra?.isSOSOfflineEnabled ??
     (Constants as any).manifest?.extra?.isSOSOfflineEnabled ??
@@ -126,10 +125,10 @@ const GETTING_STARTED_STEPS = [
       "Swipe to find travel buddies, join convoys, and message fellow adventurers.",
   },
   {
-    icon: "warning" as const,
-    title: "Community SOS",
+    icon: "satellite" as const,
+    title: "SOS Help",
     content:
-      "If you need help, choose a category to broadcast to nearby nomads on the localized mesh. Satellite SOS will extend reach for offline travelers as regions like Colorado and Utah cross rollout thresholds.",
+      "SOS capabilities to help you get help from existing nomads in the Wildergo App.",
   },
 ];
 
@@ -233,7 +232,7 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
   const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
   const [showFAQsModal, setShowFAQsModal] = useState(false);
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
-  const [view, setView] = useState<'main' | 'categories'>('main');
+  const [view, setView] = useState<"main" | "categories">("main");
 
   const handleContactSupport = () => {
     Linking.openURL(
@@ -245,6 +244,42 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
     Linking.openURL(
       "mailto:reportbugs@wildergo.com?subject=WilderGo%20Bug%20Report",
     );
+  };
+
+  const handleAccessMedicalID = async () => {
+    if (Platform.OS !== "ios") {
+      Alert.alert(
+        "iOS Only",
+        "Access to iOS Medical ID is available only on iOS devices.",
+      );
+      return;
+    }
+
+    const primaryUrl = "mobi-health://";
+    const fallbackUrl = "x-apple-health://";
+    try {
+      const supported = await Linking.canOpenURL(primaryUrl);
+      if (supported) {
+        await Linking.openURL(primaryUrl);
+        return;
+      }
+
+      const fallbackSupported = await Linking.canOpenURL(fallbackUrl);
+      if (fallbackSupported) {
+        await Linking.openURL(fallbackUrl);
+        return;
+      }
+
+      Alert.alert(
+        "Open iOS Medical ID",
+        "Please open the Health app and access Medical ID from the Medical ID tab.",
+      );
+    } catch {
+      Alert.alert(
+        "Open iOS Medical ID",
+        "Please open the Health app and access Medical ID from the Medical ID tab.",
+      );
+    }
   };
 
   const renderCategoryCard = (category: EmergencyCategory) => {
@@ -259,9 +294,7 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
         testID={`category-${category}`}
         accessibilityLabel={`${info.label} emergency category`}
       >
-        <View
-          style={[styles.categoryContent, { borderColor: info.color + "40" }]}
-        >
+        <View style={[styles.categoryContent, { borderColor: info.color + "40" }]}> 
           <View
             style={[
               styles.categoryIconContainer,
@@ -353,11 +386,11 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
           <Ionicons name="chevron-forward" size={18} color={colors.bark[400]} />
         </TouchableOpacity>
 
-        {view === 'main' ? (
+        {view === "main" ? (
           <View style={styles.mainButtonsContainer}>
             <TouchableOpacity
               style={styles.communitySOSButton}
-              onPress={() => setView('categories')}
+              onPress={() => setView("categories")}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -368,41 +401,63 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
               >
                 <View style={styles.communitySOSContent}>
                   <Ionicons name="people" size={24} color="#FFF" />
-                  <Text style={styles.communitySOSTitle}>Community SOS (Online)</Text>
+                  <Text style={styles.communitySOSTitle}>
+                    Community SOS (Online)
+                  </Text>
                   <Text style={styles.communitySOSSubtitle}>
                     Broadcast to nearby verified nomads on the localized mesh
                   </Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
+            <View style={styles.batteryOptimizedBadge}>
+              <Text style={styles.batteryOptimizedLabel}>
+                Battery Optimized
+              </Text>
+              <Text style={styles.batteryOptimizedDescription}>
+                Map accuracy is balanced while SOS is inactive to preserve
+                battery life.
+              </Text>
+            </View>
             {isSOSOfflineEnabled ? (
-              <TouchableOpacity
-                style={styles.satelliteSOSButton}
-                onPress={() => Alert.alert(
-                  'Feature Locked',
-                  'Satellite Relay is currently locked. Help us reach 5,000 Nomads in Colorado to activate this region!'
-                )}
-                activeOpacity={0.6}
-              >
-                <View style={styles.satelliteSOSContent}>
-                  <Ionicons name="radio" size={24} color={colors.bark[300]} />
-                  <Text style={styles.satelliteSOSTitle}>Satellite SOS (Offline)</Text>
-                  <Text style={styles.satelliteSOSSubtitle}>
-                    Apple satellite connectivity for offline users
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.satelliteSOSButton, styles.satelliteSOSDisabled]}>
-                <View style={styles.satelliteSOSContent}>
-                  <Ionicons name="radio" size={24} color={colors.bark[300]} />
-                  <Text style={styles.satelliteSOSTitle}>Satellite SOS (Offline)</Text>
-                  <Text style={styles.satelliteSOSSubtitle}>
-                    Coming soon — currently disabled for review
-                  </Text>
-                </View>
+              <View>
+                <TouchableOpacity
+                  style={styles.satelliteSOSButton}
+                  onPress={() =>
+                    Alert.alert(
+                      "Feature Locked",
+                      "Satellite Relay is currently locked. Help us reach 5,000 Nomads in Colorado to activate this region!",
+                    )
+                  }
+                  activeOpacity={0.6}
+                  disabled={true}
+                >
+                  <View style={styles.satelliteSOSContent}>
+                    <Ionicons name="radio" size={24} color={colors.bark[300]} />
+                    <Text style={styles.satelliteSOSTitle}>
+                      Satellite SOS (Offline)
+                    </Text>
+                    <Text style={styles.satelliteSOSSubtitle}>
+                      Apple satellite connectivity for offline users
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.milestoneTooltip}>
+                  🛰️ Satellite Layer: Roadmap Milestone (Unlocks at 5,000 users)
+                </Text>
+                {Platform.OS === "ios" ? (
+                  <TouchableOpacity
+                    style={styles.medicalIdButton}
+                    onPress={handleAccessMedicalID}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.medicalIdButtonText}>
+                      Open iOS Medical ID
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
-            )}
+            ) : null}
           </View>
         ) : (
           <>
@@ -708,11 +763,19 @@ export const EmergencyDashboard: React.FC<EmergencyDashboardProps> = ({
             {GETTING_STARTED_STEPS.map((step, index) => (
               <View key={index} style={styles.gettingStartedStep}>
                 <View style={styles.gettingStartedIconContainer}>
-                  <Ionicons
-                    name={step.icon}
-                    size={28}
-                    color={colors.moss[600]}
-                  />
+                  {step.icon === "satellite" ? (
+                    <MaterialCommunityIcons
+                      name="satellite"
+                      size={28}
+                      color={colors.moss[600]}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={step.icon}
+                      size={28}
+                      color={colors.moss[600]}
+                    />
+                  )}
                 </View>
                 <View style={styles.gettingStartedTextContainer}>
                   <Text style={styles.gettingStartedStepTitle}>
@@ -1262,7 +1325,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.liquidLg,
     borderWidth: 1,
     borderColor: colors.bark[200],
-    opacity: 0.6,
+    opacity: 0.5,
   },
   satelliteSOSDisabled: {
     backgroundColor: colors.bark[50],
@@ -1284,6 +1347,56 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.bark[400],
     textAlign: "center",
+  },
+  medicalIdButton: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.liquidLg,
+    borderWidth: 1,
+    borderColor: colors.canyonRust[400],
+    backgroundColor: "rgba(255, 255, 255, 0.88)",
+    shadowColor: colors.ironOxide[500],
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 20,
+    elevation: 6,
+    alignItems: "center",
+  },
+  medicalIdButtonText: {
+    fontFamily: typography.fontFamily.bodySemiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.canyonRust[600],
+  },
+  batteryOptimizedBadge: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.glass.whiteLight,
+    borderRadius: borderRadius.liquidLg,
+    borderWidth: 1,
+    borderColor: colors.sunsetOrange[100],
+    marginHorizontal: spacing.md,
+  },
+  batteryOptimizedLabel: {
+    fontFamily: typography.fontFamily.bodySemiBold,
+    fontSize: typography.fontSize.sm,
+    color: colors.sunsetOrange[500],
+    marginBottom: spacing.xs,
+  },
+  batteryOptimizedDescription: {
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.xs,
+    color: colors.bark[500],
+    lineHeight: 18,
+  },
+  milestoneTooltip: {
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.xs,
+    color: colors.bark[400],
+    textAlign: "center",
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
+    lineHeight: 16,
   },
 });
 

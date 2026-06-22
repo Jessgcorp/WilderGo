@@ -6,12 +6,22 @@ import {
   Animated,
   ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { colors, typography, spacing } from "@/constants/theme";
 import { Logo } from "@/components/ui/Logo";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SplashScreen() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    router.replace("/(auth)/login" as any);
+  }, [isLoading, router]);
 
   useEffect(() => {
     Animated.parallel([

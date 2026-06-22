@@ -51,7 +51,7 @@ export default function CompleteScreen() {
   };
 
   return (
-    <NatureBackground variant="forest" overlay overlayOpacity={0.4}>
+    <NatureBackground variant="utah" overlay overlayOpacity={0.4}>
       <View
         style={[
           styles.container,

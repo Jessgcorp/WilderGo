@@ -1,10 +1,32 @@
 import React, { forwardRef, useMemo } from "react";
 import { Platform, StyleSheet, View, Text, Image } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
+// Lazy-require react-native-maps to avoid crashing in Expo Go / environments
+// where native map modules are not available (dev clients only).
+let MapView: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = undefined;
+try {
+  // require at runtime so bundlers that don't include native module still run
+  // (expo go will not have native maps; a require will throw and we handle it)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const maps = require("react-native-maps");
+  MapView = maps.default || maps;
+  Marker = maps.Marker;
+  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+} catch (e) {
+  // noop - will render a mock image in __DEV__ or a placeholder in production
+}
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/theme";
 
 const MOCK_DEV_MAP_IMAGE = require("../../../attached_assets/Screenshot_2026-02-12_at_9.23.46_AM_1770913433846.png");
+
+export interface Region {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
 
 export interface MapMarkerData {
   id: string;
@@ -29,6 +51,7 @@ interface NativeMapProps {
     longitude: number;
   } | null;
   userLocation?: { latitude: number; longitude: number } | null;
+  lowDataMode?: boolean;
 }
 
 function getMarkerIcon(type: string): {
@@ -94,7 +117,7 @@ function getCommunityMarkers(centerLat: number, centerLng: number) {
   }));
 }
 
-export const NativeMap = forwardRef<MapView, NativeMapProps>(
+export const NativeMap = forwardRef<any, NativeMapProps>(
   (
     {
       region,
@@ -104,6 +127,7 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(
       showUserLocation,
       ghostModeMarker,
       userLocation,
+      lowDataMode,
     },
     ref,
   ) => {
@@ -115,7 +139,8 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(
       [Math.round(centerLat * 100) / 100, Math.round(centerLng * 100) / 100],
     );
 
-    if (__DEV__) {
+    if (!MapView) {
+      // If MapView is not available (Expo Go or missing native map package), render a placeholder image
       return (
         <View style={styles.map}>
           <Image
@@ -127,17 +152,26 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(
       );
     }
 
+    const lowData = lowDataMode ?? false;
+
     return (
       <MapView
         ref={ref}
         style={styles.map}
         provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-        initialRegion={region}
+        region={region}
         onRegionChangeComplete={onRegionChange}
         showsUserLocation={showUserLocation}
+        followsUserLocation={showUserLocation}
         showsMyLocationButton={false}
         showsCompass={false}
-        mapType="terrain"
+        showsTraffic={false}
+        showsBuildings={!lowData}
+        showsIndoors={!lowData}
+        cacheEnabled={lowData}
+        loadingEnabled={lowData}
+        mapType={lowData ? "terrain" : "standard"}
+        moveOnMarkerPress={false}
       >
         {communityMarkers.map((cm) => (
           <Marker
@@ -167,14 +201,13 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(
               description={marker.subtitle}
               onPress={() => onMarkerPress(marker)}
             >
-              <View
-                style={[markerStyles.container, { backgroundColor: icon.bg }]}
-              >
-                <Ionicons
-                  name={icon.name as any}
-                  size={18}
-                  color={icon.color}
-                />
+              <View style={[markerStyles.container, { backgroundColor: icon.bg }]}> 
+                {/* Primary icon (Ionicons); fallback to emoji if icon fails or missing */}
+                {icon && icon.name ? (
+                  <Ionicons name={icon.name as any} size={18} color={icon.color} />
+                ) : (
+                  <Text style={{ color: icon.color, fontSize: 16 }}>📍</Text>
+                )}
               </View>
               <View style={markerStyles.pointer} />
             </Marker>

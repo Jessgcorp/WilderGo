@@ -243,7 +243,7 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Alex",
     hostImage: profileImages.alex,
     location: "San Juan Wilderness, CO",
-    date: "Feb 10, 2026",
+    date: "May 30, 2026",
     time: "7:00 AM",
     maxAttendees: 6,
     currentAttendees: 3,
@@ -305,7 +305,7 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Jake",
     hostImage: profileImages.mike,
     location: "Durango, CO",
-    date: "Feb 15, 2026",
+    date: "June 2, 2026",
     time: "9:00 AM",
     maxAttendees: 5,
     currentAttendees: 2,
@@ -368,7 +368,7 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Dakota",
     hostImage: profileImages.jordan,
     location: "Silverton, CO",
-    date: "Feb 20, 2026",
+    date: "June 6, 2026",
     time: "6:00 AM",
     maxAttendees: 4,
     currentAttendees: 2,
@@ -439,7 +439,7 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Lila",
     hostImage: profileImages.sarah,
     location: "Red Rocks, CO",
-    date: "Feb 18, 2026",
+    date: "June 5, 2026",
     time: "5:30 PM",
     maxAttendees: 6,
     currentAttendees: 4,
@@ -508,11 +508,11 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Kody",
     hostImage: profileImages.sam,
     location: "Grand Mesa, CO",
-    date: "Mar 1, 2026",
+    date: "June 1, 2026",
     time: "6:00 AM",
     maxAttendees: 4,
     currentAttendees: 1,
-    imageUrl: natureImages.mistyForest,
+    imageUrl: natureImages.utahRedRocks,
     schedule: [
       "6:00 AM - Meet up",
       "7:00 AM - Hike in",
@@ -572,7 +572,7 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Maria",
     hostImage: profileImages.sarah,
     location: "Dead Horse Point, UT",
-    date: "Mar 8, 2026",
+    date: "June 7, 2026",
     time: "8:00 PM",
     maxAttendees: 8,
     currentAttendees: 4,
@@ -626,11 +626,11 @@ const sampleEvents: OutdoorEvent[] = [
     hostName: "Sam",
     hostImage: profileImages.sam,
     location: "Moab, UT",
-    date: "Feb 22, 2026",
+    date: "June 3, 2026",
     time: "9:00 AM",
     maxAttendees: 6,
     currentAttendees: 3,
-    imageUrl: natureImages.mistyForest,
+    imageUrl: natureImages.utahRedRocks,
     schedule: [
       "9:00 AM - Air down tires",
       "10:00 AM - Hit the trail",
@@ -737,7 +737,7 @@ const sampleEvents: OutdoorEvent[] = [
     requestedGuests: ["user-303"],
     approvedGuests: ["user-404"],
     latitude: 48.7596,
-    longitude: -113.7870,
+    longitude: -113.787,
   },
   {
     id: "9",
@@ -760,7 +760,7 @@ const sampleEvents: OutdoorEvent[] = [
     requestedGuests: [],
     approvedGuests: [],
     latitude: 33.8734,
-    longitude: -115.9010,
+    longitude: -115.901,
   },
   {
     id: "10",
@@ -803,7 +803,9 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
       ? sampleEvents
       : sampleEvents.filter((e) => e.activityType === selectedFilter);
 
-  const safeFilteredEvents = (Array.isArray(filteredEvents) ? filteredEvents : []).filter(
+  const safeFilteredEvents = (
+    Array.isArray(filteredEvents) ? filteredEvents : []
+  ).filter(
     (event): event is OutdoorEvent => !!event && typeof event === "object",
   );
 
@@ -1066,7 +1068,8 @@ export function OutdoorEvents({ onEventSelect }: OutdoorEventsProps) {
                 />
               </View>
               <Text style={styles.attendeeText}>
-                {event?.currentAttendees ?? 0}/{event?.maxAttendees ?? 1} spots filled
+                {event?.currentAttendees ?? 0}/{event?.maxAttendees ?? 1} spots
+                filled
               </Text>
             </View>
           </TouchableOpacity>
@@ -1105,13 +1108,13 @@ interface EventDetailModalProps {
   onApproveGuest: (eventId: string, guestId: string) => void;
 }
 
-function EventDetailModal({ 
-  event, 
-  visible, 
-  onClose, 
+function EventDetailModal({
+  event,
+  visible,
+  onClose,
   currentUserId,
   onRequestToJoin,
-  onApproveGuest 
+  onApproveGuest,
 }: EventDetailModalProps) {
   const [joined, setJoined] = useState(false);
   if (!event) return null;
@@ -1177,7 +1180,9 @@ function EventDetailModal({
           <View style={styles.detailInfoRow}>
             <Ionicons name="location" size={18} color={colors.deepTeal[500]} />
             <Text style={styles.detailInfoText}>
-              {canSeeExactLocation ? event.location : "Location revealed upon approval"}
+              {canSeeExactLocation
+                ? event.location
+                : "Location revealed upon approval"}
             </Text>
           </View>
           <View style={styles.detailInfoRow}>
@@ -1522,7 +1527,10 @@ function EventDetailModal({
         ) : isApproved ? (
           // Approved guest: Show regular join button
           <TouchableOpacity
-            style={[styles.joinButton, joined && { backgroundColor: "#4ADE80" }]}
+            style={[
+              styles.joinButton,
+              joined && { backgroundColor: "#4ADE80" },
+            ]}
             onPress={() => setJoined(true)}
             disabled={joined}
           >

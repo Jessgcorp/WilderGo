@@ -55,7 +55,7 @@ export default function ActivitiesScreen() {
   const handleContinue = async () => {
     setLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 300));
-    router.replace("/(tabs)/discovery");
+    router.replace("/dashboard");
     setLoading(false);
   };
 

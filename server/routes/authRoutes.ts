@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import authService from "../services/auth";
+import * as authService from "../services/auth";
 
 const authRoutes = Router();
 
@@ -23,7 +23,11 @@ async function handleEmailPasswordSignIn(req: Request, res: Response) {
     console.log(`[ROUTE ${route}] Result:`, JSON.stringify(result));
     return res.json(result);
   } catch (error: any) {
-    console.error(`[ROUTE ${route}] UNCAUGHT ERROR:`, error?.message, error?.stack);
+    console.error(
+      `[ROUTE ${route}] UNCAUGHT ERROR:`,
+      error?.message,
+      error?.stack,
+    );
     return res
       .status(500)
       .json({ success: false, message: "Server error: " + error.message });
@@ -42,7 +46,9 @@ authRoutes.post("/signup", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      console.log(`[ROUTE /api/auth/signup] REJECTED: Missing email or password`);
+      console.log(
+        `[ROUTE /api/auth/signup] REJECTED: Missing email or password`,
+      );
       return res
         .status(400)
         .json({ success: false, message: "Email and password are required" });
@@ -54,6 +60,41 @@ authRoutes.post("/signup", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(
       `[ROUTE /api/auth/signup] UNCAUGHT ERROR:`,
+      error?.message,
+      error?.stack,
+    );
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error: " + error.message });
+  }
+});
+
+authRoutes.post("/delete-account", async (req: Request, res: Response) => {
+  console.log(`[
+    ROUTE /api/auth/delete-account
+  ] === Request received ===`);
+  console.log(
+    `[ROUTE /api/auth/delete-account] Body:`,
+    JSON.stringify(req.body),
+  );
+  try {
+    const { uid } = req.body || {};
+    if (!uid) {
+      console.log("[ROUTE /api/auth/delete-account] REJECTED: Missing uid");
+      return res
+        .status(400)
+        .json({ success: false, message: "uid is required" });
+    }
+
+    const result = await authService.deleteAccount(uid);
+    console.log(
+      "[ROUTE /api/auth/delete-account] Result:",
+      JSON.stringify(result),
+    );
+    return res.json(result);
+  } catch (error: any) {
+    console.error(
+      "[ROUTE /api/auth/delete-account] UNCAUGHT ERROR:",
       error?.message,
       error?.stack,
     );

@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import pg from "pg";
-import authService from "../services/auth";
-import messagesService from "../services/messages";
+import * as authService from "../services/auth";
+import * as messagesService from "../services/messages";
 
 const badgePool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 

@@ -2,16 +2,17 @@
   "expo": {
     "name": "WilderGo",
     "slug": "wildergo",
-    "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/WilderGo App Icon-iOS-Default-1024x1024@1x.jpg",
     "scheme": "wildergo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.wildergo.app",
-      "buildNumber": "42",
+      "icon": "./assets/images/WilderGo App Icon-iOS-Default-1024x1024@1x.jpg",
+      "version": "1.0.53",
+        "buildNumber": "63",
       "deploymentTarget": "15.1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
@@ -26,9 +27,10 @@
     },
     "android": {
       "package": "com.wildergo.app",
+      "versionCode": 53,
       "adaptiveIcon": {
         "backgroundColor": "#F5EFE6",
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/images/WilderGo App Icon-iOS-Default-1024x1024@1x.jpg",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -66,16 +68,17 @@
       "reactCompiler": true,
       "typedRoutes": true
     },
+    "owner": "jessegcorpus",
     "extra": {
       "router": {
         "origin": false,
         "root": "app"
       },
-      "eas": {
-        "projectId": "2817ea3f-7edb-47e1-a939-326cd3881b44"
-      },
       "apiBaseUrl": "https://aa60d38e-336a-4c6c-8c7a-2e8f4ae13a3f-00-37dgmtff0mvif.picard.replit.dev",
-      "isSOSOfflineEnabled": false
+      "isSOSOfflineEnabled": false,
+      "eas": {
+        "projectId": "96d7cc3f-fc2d-4e7f-bf65-353eb1a2ccc6"
+      }
     }
   }
 }

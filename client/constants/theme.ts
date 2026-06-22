@@ -14,16 +14,16 @@ export const natureImages = {
     "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80",
   // Misty pine forest
   mistyForest:
-    "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=1200&q=80",
+    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1400&q=90&crop=entropy&cs=tinysrgb",
   // Mountain lake reflection
   mountainLake:
     "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&q=80",
   // Campfire at dusk
   campfire:
     "https://images.unsplash.com/photo-1475483768296-6163e08872a1?w=1200&q=80",
-  // Redwood forest
+  // Retired forest imagery - using Utah canyon visuals for submission
   redwoodForest:
-    "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200&q=80",
+    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1400&q=90&crop=entropy&cs=tinysrgb",
   // Ocean cliff sunset
   oceanCliff:
     "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80",
@@ -39,9 +39,9 @@ export const natureImages = {
   // Pacific coast highway
   pacificCoast:
     "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1200&q=80",
-  // Autumn forest road
+  // Retired forest imagery - using Utah canyon visuals for submission
   autumnRoad:
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&q=80",
+    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1400&q=90&crop=entropy&cs=tinysrgb",
   // Person in nature (for profile photos)
   hikingProfile:
     "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&q=80",
@@ -115,6 +115,34 @@ export const brandColors = {
     200: "#ECAA94",
     100: "#F5CCBE",
     50: "#FBE9E3",
+  },
+
+  // Canyon Rust - Secondary borders and accent shadows
+  canyonRust: {
+    900: "#6B2916",
+    800: "#7C331D",
+    700: "#8E3F24",
+    600: "#A64A30",
+    500: "#C65D3B",
+    400: "#D86E51",
+    300: "#E39474",
+    200: "#EDB59B",
+    100: "#F5D4C9",
+    50: "#FAEEE9",
+  },
+
+  // Iron Oxide - Shadow and deep border tones
+  ironOxide: {
+    900: "#3A1B18",
+    800: "#582C25",
+    700: "#753631",
+    600: "#8E3F39",
+    500: "#A94A44",
+    400: "#C16861",
+    300: "#D88B7F",
+    200: "#E8B5AA",
+    100: "#F5D7D1",
+    50: "#FBEBE8",
   },
 
   // Desert Sand - Secondary Accents (backgrounds, cards)
@@ -399,13 +427,13 @@ export const colors = {
 
   // Border Colors - WilderGo Brand
   border: {
-    primary: "#E8C5A5", // Desert Sand - main borders (brand)
-    light: "#E5E7EB", // Light Gray - subtle borders (brand)
-    medium: "rgba(255, 255, 255, 0.18)",
-    dark: "rgba(42, 42, 42, 0.12)",
+    primary: "#EDB59B", // Canyon Rust - main borders
+    light: "#F5D0C4", // Canyon light borders
+    medium: "rgba(198, 93, 59, 0.18)", // Canyon Rust midtone
+    dark: "rgba(58, 31, 24, 0.16)", // Iron Oxide shadow tone
     sienna: "#C65D3B", // Burnt sienna for nav bars
     siennaLight: "rgba(198, 93, 59, 0.3)",
-    divider: "#E5E7EB", // Light Gray - section dividers (brand)
+    divider: "#E8B69C", // Soft canyon divider
   },
 
   // Button Colors (standardized)
@@ -438,6 +466,12 @@ export const colors = {
     border: "rgba(198, 93, 59, 0.2)",
     badgeBackground: "#E8C5A5", // Desert Sand for badges/tags
   },
+
+  // Direct semantic aliases
+  error: "#D94848",
+  success: "#2D5A3D",
+  warning: "#F2A154",
+  info: "#4A90E2",
 
   // Emergency Colors - WilderGo Brand
   emergency: {

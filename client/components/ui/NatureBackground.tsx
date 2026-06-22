@@ -17,7 +17,8 @@ export type BackgroundVariant =
   | "desert"
   | "canyon"
   | "campfire"
-  | "coastal";
+  | "coastal"
+  | "utah";
 
 export type ImageMode = "gradient" | "image" | "hybrid";
 
@@ -29,14 +30,15 @@ interface NatureBackgroundProps {
   imageMode?: ImageMode;
   animated?: boolean;
   customImage?: string;
+  backgroundPointerEvents?: "auto" | "none" | "box-none" | "box-only";
 }
 
 // Map variants to image URLs
 const variantImageMap: Record<BackgroundVariant, string> = {
-  forest: natureImages.redwoodForest,
+  forest: natureImages.utahRedRocks,
   mountain: natureImages.mountainLake,
   sunset: natureImages.desertSunrise,
-  misty: natureImages.mistyForest,
+  misty: natureImages.utahRedRocks,
   sage: natureImages.goldenMeadow,
   driftwood: natureImages.vanInterior,
   starry: natureImages.starryNight,
@@ -44,11 +46,12 @@ const variantImageMap: Record<BackgroundVariant, string> = {
   canyon: natureImages.canyonVista,
   campfire: natureImages.campfire,
   coastal: natureImages.pacificCoast,
+  utah: natureImages.utahRedRocks,
 };
 
 // Gradient colors for different nature themes (fallback/hybrid mode)
 const backgroundGradients = {
-  forest: ["#1A2A1E", "#2E462F", "#3A5840", "#4A6B50", "#5A7D60"] as const,
+  forest: ["#3F210F", "#6A3A20", "#8B4513", "#D2691E", "#E9967A"] as const,
   mountain: ["#2A3A40", "#3A4A50", "#4A5A60", "#5A6A70", "#6A7A80"] as const,
   sunset: ["#3A2820", "#4E3830", "#644840", "#7C5A4C", "#946C5C"] as const,
   misty: ["#2A3028", "#3A4238", "#4A5448", "#5A6658", "#6A7868"] as const,
@@ -59,16 +62,18 @@ const backgroundGradients = {
   canyon: ["#3A3020", "#4E4030", "#645040", "#7C6450", "#947860"] as const,
   campfire: ["#2A1A10", "#3E2A20", "#523A30", "#664A40", "#7A5A50"] as const,
   coastal: ["#1A2A3A", "#2A3A4A", "#3A4A5A", "#4A5A6A", "#5A6A7A"] as const,
+  utah: ["#3F210F", "#6A3A20", "#8B4513", "#D2691E", "#E9967A"] as const,
 } as const;
 
 export const NatureBackground: React.FC<NatureBackgroundProps> = ({
   children,
-  variant = "forest",
+  variant = "utah",
   overlay = true,
   overlayOpacity = 0.3,
   imageMode = "image",
   animated = true,
   customImage,
+  backgroundPointerEvents = "none",
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1.05)).current;
@@ -124,6 +129,7 @@ export const NatureBackground: React.FC<NatureBackgroundProps> = ({
     if (imageMode === "image" || imageMode === "hybrid") {
       return (
         <Animated.View
+          pointerEvents={backgroundPointerEvents}
           style={[
             styles.imageContainer,
             animated && {
@@ -170,11 +176,12 @@ export const NatureBackground: React.FC<NatureBackgroundProps> = ({
           start={{ x: 0, y: 0 }}
           end={{ x: 0.3, y: 1 }}
           style={[styles.gradient, styles.fallbackGradient]}
+          pointerEvents={backgroundPointerEvents}
         />
       )}
 
       {/* Texture overlay for depth */}
-      <View style={styles.textureOverlay}>
+      <View style={styles.textureOverlay} pointerEvents={backgroundPointerEvents}>
         <LinearGradient
           colors={[
             "rgba(255, 255, 255, 0.06)",
@@ -185,6 +192,7 @@ export const NatureBackground: React.FC<NatureBackgroundProps> = ({
           start={{ x: 0.8, y: 0 }}
           end={{ x: 0.2, y: 1 }}
           style={StyleSheet.absoluteFill}
+          pointerEvents={backgroundPointerEvents}
         />
       </View>
 
@@ -198,6 +206,7 @@ export const NatureBackground: React.FC<NatureBackgroundProps> = ({
         ]}
         locations={[0, 0.5, 0.85, 1]}
         style={styles.vignette}
+        pointerEvents={backgroundPointerEvents}
       />
 
       {/* Optional dark overlay for better text contrast */}

@@ -18,18 +18,22 @@ function readServiceAccountJson() {
   if (inline) {
     return inline;
   }
-  const fileEnv = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const fileEnv =
+    process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (fileEnv) {
-    const resolved = path.isAbsolute(fileEnv) ? fileEnv : path.resolve(process.cwd(), fileEnv);
+    const resolved = path.isAbsolute(fileEnv)
+      ? fileEnv
+      : path.resolve(process.cwd(), fileEnv);
     if (!fs.existsSync(resolved)) {
       throw new Error(
-        `FIREBASE_SERVICE_ACCOUNT file not found: ${resolved}. Set FIREBASE_SERVICE_ACCOUNT_PATH or place the JSON at that path.`
+        `FIREBASE_SERVICE_ACCOUNT file not found: ${resolved}. Set FIREBASE_SERVICE_ACCOUNT_PATH or place the JSON at that path.`,
       );
     }
     return fs.readFileSync(resolved, "utf8");
   }
   throw new Error(
-    "Firebase credentials missing. Set FIREBASE_SERVICE_ACCOUNT (JSON string), or FIREBASE_SERVICE_ACCOUNT_PATH / GOOGLE_APPLICATION_CREDENTIALS to a service account .json file. See .env.example."
+    "Firebase credentials missing. Set FIREBASE_SERVICE_ACCOUNT (JSON string), or FIREBASE_SERVICE_ACCOUNT_PATH / GOOGLE_APPLICATION_CREDENTIALS to a service account .json file. See .env.example.",
   );
 }
 function initializeFirebase() {
@@ -40,7 +44,9 @@ function initializeFirebase() {
   console.log("[FIREBASE] === Initializing Firebase Admin SDK ===");
   const serviceAccountJson = readServiceAccountJson();
   console.log(
-    "[FIREBASE] Service account loaded (length: " + serviceAccountJson.length + " chars)"
+    "[FIREBASE] Service account loaded (length: " +
+      serviceAccountJson.length +
+      " chars)",
   );
   try {
     const serviceAccount = JSON.parse(serviceAccountJson);
@@ -49,19 +55,22 @@ function initializeFirebase() {
     console.log("[FIREBASE]   client_email: " + serviceAccount.client_email);
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      projectId: serviceAccount.project_id
+      projectId: serviceAccount.project_id,
     });
     console.log(
-      "[FIREBASE] Firebase Admin SDK initialized successfully for project: " + serviceAccount.project_id
+      "[FIREBASE] Firebase Admin SDK initialized successfully for project: " +
+        serviceAccount.project_id,
     );
     const webApiKey = process.env.FIREBASE_WEB_API_KEY;
     if (webApiKey) {
       console.log(
-        "[FIREBASE] FIREBASE_WEB_API_KEY is set (length: " + webApiKey.length + " chars)"
+        "[FIREBASE] FIREBASE_WEB_API_KEY is set (length: " +
+          webApiKey.length +
+          " chars)",
       );
     } else {
       console.warn(
-        "[FIREBASE] WARNING: FIREBASE_WEB_API_KEY is NOT set! Some auth flows may log warnings."
+        "[FIREBASE] WARNING: FIREBASE_WEB_API_KEY is NOT set! Some auth flows may log warnings.",
       );
     }
     return firebaseApp;
@@ -101,11 +110,11 @@ async function signUp(email, password) {
   try {
     if (password.length < 6) {
       console.log(
-        `[AUTH SIGNUP] REJECTED: Password too short (${password.length} chars)`
+        `[AUTH SIGNUP] REJECTED: Password too short (${password.length} chars)`,
       );
       return {
         success: false,
-        message: "Password must be at least 6 characters."
+        message: "Password must be at least 6 characters.",
       };
     }
     const auth = getAuth();
@@ -116,34 +125,34 @@ async function signUp(email, password) {
     } catch (lookupError) {
       if (lookupError.code === "auth/user-not-found") {
         console.log(
-          `[AUTH SIGNUP] No existing user found - proceeding with creation`
+          `[AUTH SIGNUP] No existing user found - proceeding with creation`,
         );
       } else {
         console.error(
           `[AUTH SIGNUP] Error checking existing user:`,
           lookupError.code,
-          lookupError.message
+          lookupError.message,
         );
         throw lookupError;
       }
     }
     if (existingUser) {
       console.log(
-        `[AUTH SIGNUP] REJECTED: User already exists with uid: ${existingUser.uid}`
+        `[AUTH SIGNUP] REJECTED: User already exists with uid: ${existingUser.uid}`,
       );
       return {
         success: false,
-        message: "An account with this email already exists."
+        message: "An account with this email already exists.",
       };
     }
     console.log(`[AUTH SIGNUP] Calling Firebase auth.createUser()...`);
     const firebaseUser = await auth.createUser({
       email: normalizedEmail,
       password,
-      emailVerified: false
+      emailVerified: false,
     });
     console.log(
-      `[AUTH SIGNUP] SUCCESS: Firebase user created with uid: ${firebaseUser.uid}`
+      `[AUTH SIGNUP] SUCCESS: Firebase user created with uid: ${firebaseUser.uid}`,
     );
     const salt = crypto.randomBytes(16).toString("hex");
     const hash = hashPassword(password, salt);
@@ -156,20 +165,20 @@ async function signUp(email, password) {
         console.log(`[AUTH SIGNUP] User count before insert: ${userCount}`);
         await client.query(
           `INSERT INTO users (email, firebase_uid, password_hash, password_salt) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO UPDATE SET password_hash = $3, password_salt = $4, firebase_uid = $2`,
-          [normalizedEmail, firebaseUser.uid, hash, salt]
+          [normalizedEmail, firebaseUser.uid, hash, salt],
         );
         console.log(`[AUTH SIGNUP] Password hash stored in PostgreSQL`);
         if (userCount < 100) {
           await client.query(
             `INSERT INTO user_badges (firebase_uid, badge_id) VALUES ($1, $2) ON CONFLICT (firebase_uid, badge_id) DO NOTHING`,
-            [firebaseUser.uid, "10"]
+            [firebaseUser.uid, "10"],
           );
           console.log(
-            `[AUTH SIGNUP] Genesis badge (Apex Pioneer) awarded - user #${userCount + 1}`
+            `[AUTH SIGNUP] Genesis badge (Apex Pioneer) awarded - user #${userCount + 1}`,
           );
         } else {
           console.log(
-            `[AUTH SIGNUP] Genesis badge NOT awarded - user #${userCount + 1} exceeds 100`
+            `[AUTH SIGNUP] Genesis badge NOT awarded - user #${userCount + 1} exceeds 100`,
           );
         }
         await client.query("COMMIT");
@@ -181,7 +190,7 @@ async function signUp(email, password) {
       }
     } catch (dbError) {
       console.warn(
-        `[AUTH SIGNUP] PostgreSQL write failed (non-critical): ${dbError.message}`
+        `[AUTH SIGNUP] PostgreSQL write failed (non-critical): ${dbError.message}`,
       );
     }
     try {
@@ -192,13 +201,13 @@ async function signUp(email, password) {
         selfieVerified: false,
         selfieSubmitted: false,
         onboardingComplete: false,
-        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        lastLogin: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        createdAt: /* @__PURE__ */ new Date().toISOString(),
+        lastLogin: /* @__PURE__ */ new Date().toISOString(),
+        updatedAt: /* @__PURE__ */ new Date().toISOString(),
       });
     } catch (firestoreError) {
       console.warn(
-        `[AUTH SIGNUP] Firestore write failed (non-critical): ${firestoreError.message}`
+        `[AUTH SIGNUP] Firestore write failed (non-critical): ${firestoreError.message}`,
       );
     }
     return { success: true, uid: firebaseUser.uid };
@@ -208,7 +217,7 @@ async function signUp(email, password) {
     console.error(`[AUTH SIGNUP]   message: ${error.message}`);
     console.error(
       `[AUTH SIGNUP]   full error:`,
-      JSON.stringify(error, null, 2)
+      JSON.stringify(error, null, 2),
     );
     let userMessage = "Failed to create account.";
     if (error.code === "auth/email-already-exists") {
@@ -218,7 +227,8 @@ async function signUp(email, password) {
     } else if (error.code === "auth/weak-password") {
       userMessage = "Password is too weak. Use at least 6 characters.";
     } else if (error.code === "auth/operation-not-allowed") {
-      userMessage = "Email/password accounts are not enabled. Please enable them in Firebase Console.";
+      userMessage =
+        "Email/password accounts are not enabled. Please enable them in Firebase Console.";
     } else if (error.message) {
       userMessage = error.message;
     }
@@ -243,34 +253,38 @@ async function signIn(email, password) {
     try {
       const dbResult = await pool.query(
         `SELECT password_hash, password_salt FROM users WHERE email = $1`,
-        [normalizedEmail]
+        [normalizedEmail],
       );
-      if (dbResult.rows.length > 0 && dbResult.rows[0].password_hash && dbResult.rows[0].password_salt) {
+      if (
+        dbResult.rows.length > 0 &&
+        dbResult.rows[0].password_hash &&
+        dbResult.rows[0].password_salt
+      ) {
         const { password_hash, password_salt } = dbResult.rows[0];
         if (!verifyPassword(password, password_salt, password_hash)) {
           console.log(
-            `[AUTH SIGNIN] Password verification failed for: ${normalizedEmail}`
+            `[AUTH SIGNIN] Password verification failed for: ${normalizedEmail}`,
           );
           return {
             success: false,
-            message: "Incorrect password. Please try again."
+            message: "Incorrect password. Please try again.",
           };
         }
         console.log(`[AUTH SIGNIN] Password verified successfully`);
       } else {
         console.log(
-          `[AUTH SIGNIN] No stored password hash found - storing one now`
+          `[AUTH SIGNIN] No stored password hash found - storing one now`,
         );
         const salt = crypto.randomBytes(16).toString("hex");
         const hash = hashPassword(password, salt);
         await pool.query(
           `INSERT INTO users (email, firebase_uid, password_hash, password_salt) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO UPDATE SET password_hash = $3, password_salt = $4, firebase_uid = $2`,
-          [normalizedEmail, firebaseUser.uid, hash, salt]
+          [normalizedEmail, firebaseUser.uid, hash, salt],
         );
       }
     } catch (dbError) {
       console.warn(
-        `[AUTH SIGNIN] Password verification via DB failed (non-critical): ${dbError.message}`
+        `[AUTH SIGNIN] Password verification via DB failed (non-critical): ${dbError.message}`,
       );
     }
     let firestoreData = {};
@@ -280,29 +294,33 @@ async function signIn(email, password) {
       if (userDoc.exists) {
         firestoreData = userDoc.data() || {};
       }
-      await db.collection("users").doc(firebaseUser.uid).update({
-        lastLogin: (/* @__PURE__ */ new Date()).toISOString(),
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }).catch(() => {
-      });
+      await db
+        .collection("users")
+        .doc(firebaseUser.uid)
+        .update({
+          lastLogin: /* @__PURE__ */ new Date().toISOString(),
+          updatedAt: /* @__PURE__ */ new Date().toISOString(),
+        })
+        .catch(() => {});
     } catch (firestoreError) {
       console.warn(
-        `[AUTH SIGNIN] Firestore unavailable (non-critical): ${firestoreError.message}`
+        `[AUTH SIGNIN] Firestore unavailable (non-critical): ${firestoreError.message}`,
       );
     }
     const result = {
       success: true,
       uid: firebaseUser.uid,
-      emailVerified: firebaseUser.emailVerified || firestoreData.emailVerified || false,
+      emailVerified:
+        firebaseUser.emailVerified || firestoreData.emailVerified || false,
       selfieVerified: firestoreData.selfieVerified || false,
       invitedBy: firestoreData.invitedBy,
-      onboardingComplete: firestoreData.onboardingComplete || false
+      onboardingComplete: firestoreData.onboardingComplete || false,
     };
     console.log(`[AUTH SIGNIN] Success for uid: ${firebaseUser.uid}`);
     return result;
   } catch (error) {
     console.error(
-      `[AUTH SIGNIN] UNEXPECTED ERROR: ${error.code} - ${error.message}`
+      `[AUTH SIGNIN] UNEXPECTED ERROR: ${error.code} - ${error.message}`,
     );
     return { success: false, message: error.message || "Failed to sign in" };
   }
@@ -313,25 +331,25 @@ async function sendVerificationEmail(uid) {
     const auth = getAuth();
     const user = await auth.getUser(uid);
     console.log(
-      `[AUTH] User found: ${user.email}, emailVerified: ${user.emailVerified}`
+      `[AUTH] User found: ${user.email}, emailVerified: ${user.emailVerified}`,
     );
     const verificationLink = await auth.generateEmailVerificationLink(
-      user.email
+      user.email,
     );
     console.log(`[AUTH] Verification link generated for ${user.email}`);
     return {
       success: true,
-      message: "Verification email sent. Check your inbox."
+      message: "Verification email sent. Check your inbox.",
     };
   } catch (error) {
     console.error(
       `[AUTH] sendVerificationEmail error:`,
       error.code,
-      error.message
+      error.message,
     );
     return {
       success: false,
-      message: error.message || "Failed to send verification email"
+      message: error.message || "Failed to send verification email",
     };
   }
 }
@@ -343,7 +361,7 @@ async function verifyEmail(uid, token) {
     const db = getFirestore();
     await db.collection("users").doc(uid).update({
       emailVerified: true,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      updatedAt: /* @__PURE__ */ new Date().toISOString(),
     });
     console.log(`[AUTH] Email verified for uid: ${uid}`);
     return { success: true };
@@ -357,22 +375,25 @@ async function checkEmailVerification(uid) {
     const auth = getAuth();
     const user = await auth.getUser(uid);
     console.log(
-      `[AUTH] checkEmailVerification uid: ${uid}, verified: ${user.emailVerified}`
+      `[AUTH] checkEmailVerification uid: ${uid}, verified: ${user.emailVerified}`,
     );
     if (user.emailVerified) {
       const db = getFirestore();
-      await db.collection("users").doc(uid).update({
-        emailVerified: true,
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }).catch(() => {
-      });
+      await db
+        .collection("users")
+        .doc(uid)
+        .update({
+          emailVerified: true,
+          updatedAt: /* @__PURE__ */ new Date().toISOString(),
+        })
+        .catch(() => {});
     }
     return { success: true, emailVerified: user.emailVerified };
   } catch (error) {
     console.error(
       `[AUTH] checkEmailVerification error:`,
       error.code,
-      error.message
+      error.message,
     );
     return { success: false, emailVerified: false, message: error.message };
   }
@@ -385,14 +406,14 @@ async function submitSelfie(uid, selfieData) {
       await db.collection("users").doc(uid).set(
         {
           selfieSubmitted: true,
-          selfieSubmittedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          selfieSubmittedAt: /* @__PURE__ */ new Date().toISOString(),
+          updatedAt: /* @__PURE__ */ new Date().toISOString(),
         },
-        { merge: true }
+        { merge: true },
       );
     } catch (firestoreError) {
       console.warn(
-        `[AUTH] submitSelfie Firestore write failed (non-critical): ${firestoreError.message}`
+        `[AUTH] submitSelfie Firestore write failed (non-critical): ${firestoreError.message}`,
       );
     }
     console.log(`[AUTH] Selfie submitted for uid: ${uid}`);
@@ -401,7 +422,7 @@ async function submitSelfie(uid, selfieData) {
     console.error(`[AUTH] submitSelfie error:`, error.code, error.message);
     return {
       success: false,
-      message: error.message || "Failed to submit selfie"
+      message: error.message || "Failed to submit selfie",
     };
   }
 }
@@ -416,14 +437,14 @@ async function getUserStatus(uid) {
       userData = userDoc.exists ? userDoc.data() : {};
     } catch (firestoreError) {
       console.warn(
-        `[AUTH] getUserStatus Firestore read failed (non-critical): ${firestoreError.message}`
+        `[AUTH] getUserStatus Firestore read failed (non-critical): ${firestoreError.message}`,
       );
     }
     return {
       success: true,
       emailVerified: firebaseUser.emailVerified,
       selfieVerified: userData?.selfieVerified || false,
-      selfieSubmitted: userData?.selfieSubmitted || false
+      selfieSubmitted: userData?.selfieSubmitted || false,
     };
   } catch (error) {
     console.error(`[AUTH] getUserStatus error:`, error.code, error.message);
@@ -441,13 +462,13 @@ async function generateInviteCode(uid) {
     if (!userData?.selfieVerified) {
       return {
         success: false,
-        message: "Only verified users can generate invite codes."
+        message: "Only verified users can generate invite codes.",
       };
     }
     const code = crypto.randomBytes(4).toString("hex").toUpperCase();
     await db.collection("inviteCodes").doc(code).set({
       createdBy: uid,
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      createdAt: /* @__PURE__ */ new Date().toISOString(),
     });
     console.log(`[AUTH] Invite code generated by uid ${uid}: ${code}`);
     return { success: true, inviteCode: code };
@@ -459,7 +480,10 @@ async function generateInviteCode(uid) {
 async function validateInviteCode(code) {
   try {
     const db = getFirestore();
-    const inviteDoc = await db.collection("inviteCodes").doc(code.toUpperCase()).get();
+    const inviteDoc = await db
+      .collection("inviteCodes")
+      .doc(code.toUpperCase())
+      .get();
     if (!inviteDoc.exists) {
       return { valid: false, message: "Invalid invite code." };
     }
@@ -467,7 +491,7 @@ async function validateInviteCode(code) {
     if (inviteData?.usedBy) {
       return {
         valid: false,
-        message: "This invite code has already been used."
+        message: "This invite code has already been used.",
       };
     }
     return { valid: true, inviterUid: inviteData?.createdBy };
@@ -483,14 +507,14 @@ async function useInviteCode(code, usedByUid) {
     if (!inviteDoc.exists || inviteDoc.data()?.usedBy) {
       return {
         success: false,
-        message: "Invalid or already used invite code."
+        message: "Invalid or already used invite code.",
       };
     }
     await inviteRef.update({ usedBy: usedByUid });
     const inviteData = inviteDoc.data();
     await db.collection("users").doc(usedByUid).update({
       invitedBy: inviteData?.createdBy,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      updatedAt: /* @__PURE__ */ new Date().toISOString(),
     });
     console.log(`[AUTH] Invite code ${code} used by ${usedByUid}`);
     return { success: true };
@@ -501,24 +525,29 @@ async function useInviteCode(code, usedByUid) {
 async function createOrUpdateUserProfile(uid, profile) {
   console.log(
     `[AUTH] createOrUpdateUserProfile for uid: ${uid}`,
-    JSON.stringify(profile)
+    JSON.stringify(profile),
   );
   try {
     if (profile.displayName) {
       const auth = getAuth();
-      await auth.updateUser(uid, { displayName: profile.displayName }).catch((e) => {
-        console.warn(`[AUTH] Firebase Auth updateUser failed: ${e.message}`);
-      });
+      await auth
+        .updateUser(uid, { displayName: profile.displayName })
+        .catch((e) => {
+          console.warn(`[AUTH] Firebase Auth updateUser failed: ${e.message}`);
+        });
     }
     try {
       const db = getFirestore();
-      await db.collection("users").doc(uid).set(
-        { ...profile, updatedAt: (/* @__PURE__ */ new Date()).toISOString() },
-        { merge: true }
-      );
+      await db
+        .collection("users")
+        .doc(uid)
+        .set(
+          { ...profile, updatedAt: /* @__PURE__ */ new Date().toISOString() },
+          { merge: true },
+        );
     } catch (firestoreError) {
       console.warn(
-        `[AUTH] createOrUpdateUserProfile Firestore write failed (non-critical): ${firestoreError.message}`
+        `[AUTH] createOrUpdateUserProfile Firestore write failed (non-critical): ${firestoreError.message}`,
       );
     }
     return { success: true };
@@ -538,7 +567,7 @@ async function getUserProfile(uid) {
       userData = userDoc.exists ? userDoc.data() : {};
     } catch (firestoreError) {
       console.warn(
-        `[AUTH] getUserProfile Firestore read failed (non-critical): ${firestoreError.message}`
+        `[AUTH] getUserProfile Firestore read failed (non-critical): ${firestoreError.message}`,
       );
     }
     return {
@@ -551,7 +580,7 @@ async function getUserProfile(uid) {
       vehicle: userData?.vehicle,
       nomadStyle: userData?.nomadStyle,
       photoURL: userData?.photoURL || firebaseUser.photoURL,
-      onboardingComplete: userData?.onboardingComplete || false
+      onboardingComplete: userData?.onboardingComplete || false,
     };
   } catch (error) {
     console.error(`[AUTH] getUserProfile error:`, error.code, error.message);
@@ -570,7 +599,7 @@ var auth_default = {
   validateInviteCode,
   useInviteCode,
   createOrUpdateUserProfile,
-  getUserProfile
+  getUserProfile,
 };
 
 // server/routes/authRoutes.ts
@@ -580,20 +609,28 @@ async function handleEmailPasswordSignIn(req, res) {
   console.log(`[ROUTE ${route}] === Request received ===`);
   console.log(
     `[ROUTE ${route}] Body:`,
-    JSON.stringify({ email: req.body?.email, password: "***" })
+    JSON.stringify({ email: req.body?.email, password: "***" }),
   );
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       console.log(`[ROUTE ${route}] REJECTED: Missing email or password`);
-      return res.status(400).json({ success: false, message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email and password are required" });
     }
     const result = await auth_default.signIn(email, password);
     console.log(`[ROUTE ${route}] Result:`, JSON.stringify(result));
     return res.json(result);
   } catch (error) {
-    console.error(`[ROUTE ${route}] UNCAUGHT ERROR:`, error?.message, error?.stack);
-    return res.status(500).json({ success: false, message: "Server error: " + error.message });
+    console.error(
+      `[ROUTE ${route}] UNCAUGHT ERROR:`,
+      error?.message,
+      error?.stack,
+    );
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error: " + error.message });
   }
 }
 authRoutes.post("/login", handleEmailPasswordSignIn);
@@ -602,13 +639,17 @@ authRoutes.post("/signup", async (req, res) => {
   console.log(`[ROUTE /api/auth/signup] === Request received ===`);
   console.log(
     `[ROUTE /api/auth/signup] Body:`,
-    JSON.stringify({ email: req.body?.email, password: "***" })
+    JSON.stringify({ email: req.body?.email, password: "***" }),
   );
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      console.log(`[ROUTE /api/auth/signup] REJECTED: Missing email or password`);
-      return res.status(400).json({ success: false, message: "Email and password are required" });
+      console.log(
+        `[ROUTE /api/auth/signup] REJECTED: Missing email or password`,
+      );
+      return res
+        .status(400)
+        .json({ success: false, message: "Email and password are required" });
     }
     const result = await auth_default.signUp(email, password);
     console.log(`[ROUTE /api/auth/signup] Result:`, JSON.stringify(result));
@@ -617,9 +658,11 @@ authRoutes.post("/signup", async (req, res) => {
     console.error(
       `[ROUTE /api/auth/signup] UNCAUGHT ERROR:`,
       error?.message,
-      error?.stack
+      error?.stack,
     );
-    return res.status(500).json({ success: false, message: "Server error: " + error.message });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error: " + error.message });
   }
 });
 var authRoutes_default = authRoutes;
@@ -631,10 +674,7 @@ var __filename = fileURLToPath(import.meta.url);
 var __dirname = dirname(__filename);
 var app = express();
 var log = console.log;
-app.get(
-  "/test-deploy",
-  (_req, res) => res.send("DEPLOYED_APRIL_26_V1")
-);
+app.get("/test-deploy", (_req, res) => res.send("DEPLOYED_APRIL_26_V1"));
 app.get("/health", (_req, res) => {
   res.send("Server Version 2.0 - LIVE");
 });
@@ -650,12 +690,16 @@ function setupCors(app2) {
       });
     }
     const origin = req.header("origin");
-    const isLocalhost = origin?.startsWith("http://localhost:") || origin?.startsWith("https://localhost:") || origin?.startsWith("http://127.0.0.1:") || origin?.startsWith("https://127.0.0.1:");
+    const isLocalhost =
+      origin?.startsWith("http://localhost:") ||
+      origin?.startsWith("https://localhost:") ||
+      origin?.startsWith("http://127.0.0.1:") ||
+      origin?.startsWith("https://127.0.0.1:");
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS"
+        "GET, POST, PUT, DELETE, OPTIONS",
       );
       res.header("Access-Control-Allow-Headers", "Content-Type");
       res.header("Access-Control-Allow-Credentials", "true");
@@ -671,8 +715,8 @@ function setupBodyParsing(app2) {
     express.json({
       verify: (req, _res, buf) => {
         req.rawBody = buf;
-      }
-    })
+      },
+    }),
   );
   app2.use(express.urlencoded({ extended: false }));
 }
@@ -682,7 +726,7 @@ function setupRequestLogging(app2) {
     const path3 = req.path;
     let capturedJsonResponse = void 0;
     const originalResJson = res.json;
-    res.json = function(bodyJson, ...args) {
+    res.json = function (bodyJson, ...args) {
       capturedJsonResponse = bodyJson;
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
@@ -716,10 +760,12 @@ function serveExpoManifest(platform, res) {
     process.cwd(),
     "static-build",
     platform,
-    "manifest.json"
+    "manifest.json",
   );
   if (!fs2.existsSync(manifestPath)) {
-    return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
+    return res
+      .status(404)
+      .json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
@@ -727,12 +773,7 @@ function serveExpoManifest(platform, res) {
   const manifest = fs2.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
-function serveLandingPage({
-  req,
-  res,
-  landingPageTemplate,
-  appName
-}) {
+function serveLandingPage({ req, res, landingPageTemplate, appName }) {
   const forwardedProto = req.header("x-forwarded-proto");
   const protocol = forwardedProto || req.protocol || "https";
   const forwardedHost = req.header("x-forwarded-host");
@@ -741,7 +782,10 @@ function serveLandingPage({
   const expsUrl = `${host}`;
   log(`baseUrl`, baseUrl);
   log(`expsUrl`, expsUrl);
-  const html = landingPageTemplate.replace(/BASE_URL_PLACEHOLDER/g, baseUrl).replace(/EXPS_URL_PLACEHOLDER/g, expsUrl).replace(/APP_NAME_PLACEHOLDER/g, appName);
+  const html = landingPageTemplate
+    .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
+    .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
+    .replace(/APP_NAME_PLACEHOLDER/g, appName);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(html);
 }
@@ -749,7 +793,7 @@ function configureExpoAndLanding(app2) {
   const templatePath = path2.resolve(
     process.cwd(),
     "templates",
-    "landing-page.html"
+    "landing-page.html",
   );
   const landingPageTemplate = fs2.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
@@ -770,7 +814,7 @@ function configureExpoAndLanding(app2) {
         req,
         res,
         landingPageTemplate,
-        appName
+        appName,
       });
     }
     next();
@@ -827,13 +871,15 @@ function setupErrorHandler(app2) {
   const server = createServer(app);
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
-  const host = process.env.HOST || (process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0");
+  const host =
+    process.env.HOST ||
+    (process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0");
   server.on("error", (err) => {
     console.error("[SERVER] listen error:", err);
   });
   const listenOptions = {
     port,
-    host
+    host,
   };
   if (process.env.REUSE_PORT === "1") {
     listenOptions.reusePort = true;

@@ -7,12 +7,14 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "@/hooks/useRouterCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   colors,
   typography,
@@ -129,6 +131,8 @@ export default function NomadStyleScreen() {
     ]).start();
   }, [fadeAnim, slideAnim, backgroundScale]);
 
+  const { updateProfile, user } = useAuth();
+
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
       setSelectedInterests(selectedInterests.filter((i) => i !== interest));
@@ -141,9 +145,20 @@ export default function NomadStyleScreen() {
     if (!selectedStyle) return;
 
     setLoading(true);
+    if (user) {
+      await updateProfile({ nomadStyle: selectedStyle });
+    }
     await new Promise((resolve) => setTimeout(resolve, 500));
     router.push("/(onboarding)/selfie-verify");
     setLoading(false);
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(onboarding)/vehicle-select");
+    }
   };
 
   return (
@@ -183,12 +198,14 @@ export default function NomadStyleScreen() {
             paddingBottom: insets.bottom + spacing.xl,
           },
         ]}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={handleBack}
         >
           <Ionicons name="arrow-back" size={24} color={colors.text.inverse} />
         </TouchableOpacity>

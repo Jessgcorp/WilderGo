@@ -62,13 +62,14 @@ export const Logo: React.FC<LogoProps> = ({
         Wilder
         <Text style={{ color: textColor }}>Go</Text>
       </Text>
-      {showTagline && (
+      {showTagline && size !== "hero" && (
         <Text
           style={[
             styles.tagline,
             {
               fontSize: getTaglineSize(),
-              color: variant === "light" ? colors.text.inverse : colors.bark[800],
+              color:
+                variant === "light" ? colors.text.inverse : colors.bark[800],
             },
           ]}
         >

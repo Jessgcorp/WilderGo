@@ -1,297 +1,84 @@
-/**
- * Help Tab Screen
- * Community SOS (localized mesh) + emergency resources
- */
-
-import React, { useState, useCallback, useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useMemo, useState } from "react";
 import {
-  EmergencyDashboard,
-  HelpRequestForm,
-  ActiveRequestHUD,
-  HelpAlertModal,
-  EmergencyCategory,
-  HelpRequest,
-  HelpResponse,
-  NearbyAlert,
-} from "@/components/emergency";
-import { useEmergencyTriage } from "@/hooks/useEmergencyTriage";
+  View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { colors } from "@/constants/theme";
 
-type HelpScreenState = "dashboard" | "form" | "active";
+const DEFAULT_TIPS = [
+  "Stuck in sand? Rock under the tires helps build traction.",
+  "Low on fuel? Drive with the windows down at low speed to conserve power.",
+  "Keep a small shovel and recovery straps within easy reach.",
+  "If your rig stalls, signal other drivers with hazard lights and flares.",
+  "Always place a boulder or rock under the tire tread for traction when you get stuck.",
+  "A quick mirror check before reversing can prevent campsite mishaps.",
+];
 
 export default function HelpScreen() {
-  const [screenState, setScreenState] = useState<HelpScreenState>("dashboard");
-  const [selectedCategory, setSelectedCategory] =
-    useState<EmergencyCategory | null>(null);
-  const [activeRequest, setActiveRequest] = useState<HelpRequest | null>(null);
-  const [responses, setResponses] = useState<HelpResponse[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tipText, setTipText] = useState("");
+  const [submittedTips, setSubmittedTips] = useState<string[]>([]);
 
-  // For demo: incoming help alert
-  const [showAlert, setShowAlert] = useState(false);
-  const [incomingAlert, setIncomingAlert] = useState<NearbyAlert | null>(null);
-
-  // AI Icebreakers for responders
-  const [aiIcebreakers, setAiIcebreakers] = useState<string[]>([]);
-  const [, setRespondedToAlert] = useState(false);
-
-  // AI Triage hook for generating icebreakers
-  const { getIcebreakers } = useEmergencyTriage();
-
-  // Generate AI icebreakers for an incoming alert
-  const generateIcebreakersForAlert = useCallback(
-    async (alert: NearbyAlert) => {
-      try {
-        const result = await getIcebreakers({
-          category: alert.request.category,
-          priority: alert.request.priority,
-          description: alert.request.description,
-          responderDistance: alert.distance,
-        });
-
-        if (result?.messages) {
-          setAiIcebreakers(result.messages);
-        } else {
-          // Fallback icebreakers
-          setAiIcebreakers([
-            "I'm nearby and can help - hang tight!",
-            "I have tools in my rig, heading your way now",
-          ]);
-        }
-      } catch {
-        // Fallback icebreakers on error
-        setAiIcebreakers([
-          "I'm nearby and can help - hang tight!",
-          "Fellow nomad here - on my way!",
-        ]);
-      }
-    },
-    [getIcebreakers],
+  const tipList = useMemo(
+    () => [...DEFAULT_TIPS, ...submittedTips],
+    [submittedTips],
   );
 
-  const simulateResponses = useCallback((requestId: string) => {
-    // Simulate first responder after 5 seconds
-    setTimeout(() => {
-      setResponses((prev) => [
-        ...prev,
-        {
-          id: "response-1",
-          requestId,
-          responderId: "responder-1",
-          responderName: "Mike T.",
-          message: "I'm about 4 miles away, heading your way!",
-          eta: "12 min",
-          distance: 4.2,
-          status: "en_route",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      setActiveRequest((prev) =>
-        prev ? { ...prev, respondersCount: 1 } : null,
-      );
-    }, 5000);
-
-    // Simulate second responder after 8 seconds
-    setTimeout(() => {
-      setResponses((prev) => [
-        ...prev,
-        {
-          id: "response-2",
-          requestId,
-          responderId: "responder-2",
-          responderName: "Alex K.",
-          message: "I have some basic tools if you need them",
-          eta: "18 min",
-          distance: 6.8,
-          status: "offered",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      setActiveRequest((prev) =>
-        prev ? { ...prev, respondersCount: 2 } : null,
-      );
-    }, 8000);
-  }, []);
-
-  // Simulate incoming alerts (for demo purposes)
-  useEffect(() => {
-    // Show a demo alert after 30 seconds on the dashboard
-    const timer = setTimeout(() => {
-      if (screenState === "dashboard" && !activeRequest) {
-        // Create demo incoming alert
-        const demoAlert: NearbyAlert = {
-          request: {
-            id: "incoming-1",
-            userId: "user-123",
-            userName: "Sarah M.",
-            rigName: "2020 Sprinter",
-            category: "mechanical",
-            priority: "urgent",
-            description:
-              "My van broke down on the highway. Engine is overheating and I am stuck at a pull-off. Would really appreciate some help checking it out.",
-            status: "broadcasting",
-            location: {
-              latitude: 38.5833,
-              longitude: -109.5598,
-              address: "Highway 191, near Moab",
-            },
-            nomadicPulse: {
-              heading: "Arches NP",
-              currentLocation: "Moab, UT",
-              travelingWith: 0,
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            respondersCount: 0,
-            respondersNotified: 8,
-          },
-          distance: 3.2,
-          direction: "NE",
-          estimatedTime: "8 min",
-        };
-
-        // Generate AI icebreakers using Newell AI
-        generateIcebreakersForAlert(demoAlert);
-
-        setIncomingAlert(demoAlert);
-        setShowAlert(true);
-      }
-    }, 30000);
-
-    return () => clearTimeout(timer);
-  }, [screenState, activeRequest, generateIcebreakersForAlert]);
-
-  const handleSelectCategory = useCallback((category: EmergencyCategory) => {
-    setSelectedCategory(category);
-    setScreenState("form");
-  }, []);
-
-  const handleFormCancel = useCallback(() => {
-    setSelectedCategory(null);
-    setScreenState("dashboard");
-  }, []);
-
-  const handleFormSubmit = useCallback(
-    async (requestData: Partial<HelpRequest>) => {
-      setIsSubmitting(true);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Create the active request
-      const newRequest: HelpRequest = {
-        id: `request-${Date.now()}`,
-        userId: "current-user",
-        userName: "You",
-        ...requestData,
-        status: "broadcasting",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        respondersCount: 0,
-        respondersNotified: 12, // Simulated count
-      } as HelpRequest;
-
-      setActiveRequest(newRequest);
-      setIsSubmitting(false);
-      setScreenState("active");
-
-      // Simulate responses coming in
-      simulateResponses(newRequest.id);
-    },
-    [simulateResponses],
-  );
-
-  const handleCancelRequest = useCallback(() => {
-    setActiveRequest(null);
-    setResponses([]);
-    setScreenState("dashboard");
-  }, []);
-
-  const handleViewActiveRequest = useCallback(() => {
-    if (activeRequest) {
-      setScreenState("active");
+  const handleSubmitTip = () => {
+    if (!tipText.trim()) {
+      Alert.alert("Add a tip", "Please write a quick tip before submitting.");
+      return;
     }
-  }, [activeRequest]);
 
-  const handleAlertRespond = useCallback(() => {
-    setRespondedToAlert(true);
-    setTimeout(() => {
-      setShowAlert(false);
-      setRespondedToAlert(false);
-      setScreenState("active");
-      setActiveRequest({
-        id: incomingAlert?.request.id || "response-1",
-        userId: "current-user",
-        userName: "You",
-        category: incomingAlert?.request.category || "mechanical",
-        priority: incomingAlert?.request.priority || "urgent",
-        description: `Responding to ${incomingAlert?.request.userName}'s request: ${incomingAlert?.request.description}`,
-        status: "responded",
-        location: incomingAlert?.request.location || {
-          latitude: 0,
-          longitude: 0,
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        respondersCount: 1,
-        respondersNotified: 0,
-      } as HelpRequest);
-    }, 1500);
-  }, [incomingAlert]);
-
-  const handleAlertDismiss = useCallback(() => {
-    setShowAlert(false);
-    setIncomingAlert(null);
-  }, []);
-
-  const handleAITriageResponse = useCallback((advice: string) => {
-    // Update active request with AI advice
-    setActiveRequest((prev) =>
-      prev ? { ...prev, aiTriageAdvice: advice } : null,
-    );
-  }, []);
+    setSubmittedTips((current) => [tipText.trim(), ...current]);
+    setTipText("");
+    Alert.alert("Tip sent", "Your tip has been added to the community board.");
+  };
 
   return (
     <View style={styles.container}>
-      {/* Dashboard State */}
-      {screenState === "dashboard" && (
-        <EmergencyDashboard
-          onSelectCategory={handleSelectCategory}
-          activeRequests={activeRequest ? 1 : 0}
-          onViewActiveRequest={handleViewActiveRequest}
-        />
-      )}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.header}>Pro Tips</Text>
+        <Text style={styles.subheader}>
+          Learn from the WilderGo community with practical recovery, safety, and
+          route planning tips.
+        </Text>
 
-      {/* Form State */}
-      {screenState === "form" && selectedCategory && (
-        <HelpRequestForm
-          category={selectedCategory}
-          onSubmit={handleFormSubmit}
-          onCancel={handleFormCancel}
-          onAITriageResponse={handleAITriageResponse}
-          isSubmitting={isSubmitting}
-        />
-      )}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Community Safety Tips</Text>
+          {tipList.map((tip, index) => (
+            <View key={`${tip}-${index}`} style={styles.tipCard}>
+              <Text style={styles.tipText}>{tip}</Text>
+            </View>
+          ))}
 
-      {/* Active Request State */}
-      {screenState === "active" && activeRequest && (
-        <ActiveRequestHUD
-          request={activeRequest}
-          responses={responses}
-          onCancel={handleCancelRequest}
-        />
-      )}
+          <TextInput
+            style={styles.input}
+            placeholder="Share your tip with the community..."
+            placeholderTextColor="rgba(60, 60, 67, 0.5)"
+            value={tipText}
+            onChangeText={setTipText}
+            multiline
+            numberOfLines={3}
+          />
 
-      {/* Incoming Help Alert Modal */}
-      <HelpAlertModal
-        visible={showAlert}
-        alert={incomingAlert}
-        onRespond={handleAlertRespond}
-        onDismiss={handleAlertDismiss}
-        aiIcebreakers={aiIcebreakers}
-      />
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleSubmitTip}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buttonText}>Submit Tip</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -299,6 +86,72 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5EFE6", // Warm Cream
+    backgroundColor: colors.background.primary,
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.text.primary,
+    marginBottom: 10,
+  },
+  subheader: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text.secondary,
+    marginBottom: 22,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.text.primary,
+    marginBottom: 16,
+  },
+  tipCard: {
+    backgroundColor: "#F6F4EF",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+  },
+  tipText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text.primary,
+  },
+  input: {
+    backgroundColor: "#F7F5EE",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(60, 60, 67, 0.12)",
+    padding: 16,
+    marginTop: 18,
+    color: colors.text.primary,
+    textAlignVertical: "top",
+    minHeight: 96,
+  },
+  button: {
+    marginTop: 16,
+    backgroundColor: colors.ember[500],
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: colors.text.inverse,
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

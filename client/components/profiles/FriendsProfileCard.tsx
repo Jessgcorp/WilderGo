@@ -1,31 +1,23 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import { typography, spacing, borderRadius } from "@/constants/theme";
+import { typography } from "@/constants/theme";
 
-import sceneRedwood from "../../../assets/images/scenes/scene-redwood-forest.png";
+import sceneDesert from "../../../assets/images/scenes/scene-desert-sunset.png";
 import sceneMountain from "../../../assets/images/scenes/scene-mountain-lake.png";
 import sceneWaterfall from "../../../assets/images/scenes/scene-waterfall.png";
 import sceneTwilight from "../../../assets/images/scenes/scene-twilight-mountains.png";
 import sceneCoastal from "../../../assets/images/scenes/scene-coastal-road.png";
 
 const sceneImages = [
-  sceneRedwood,
+  sceneDesert,
   sceneMountain,
   sceneWaterfall,
   sceneTwilight,
   sceneCoastal,
 ];
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const CARD_BG = "#FFFFFF";
 const SECTION_BG = "#F5EFE6";
@@ -103,7 +95,14 @@ export const FriendsProfileCard: React.FC<FriendsProfileCardProps> = ({
   onViewProfile,
   compact = false,
 }) => {
-  const sceneIndex = parseInt(profile.id, 10) % sceneImages.length;
+  if (!profile) return null;
+  if (!profile.id) return null;
+
+  let sceneIndex = 0;
+  if (profile?.id) {
+    const parsedId = parseInt(profile.id, 10);
+    sceneIndex = Number.isNaN(parsedId) ? 0 : parsedId % sceneImages.length;
+  }
 
   if (compact) {
     return (
@@ -151,14 +150,13 @@ export const FriendsProfileCard: React.FC<FriendsProfileCardProps> = ({
           colors={["transparent", CARD_BG]}
           style={styles.sceneGradient}
         />
-        {profile.online ? <View style={styles.onlineIndicator} /> : null}
-        {profile.verified ? (
+        {profile?.online ? <View style={styles.onlineIndicator} /> : null}
+        {profile?.verified ? (
           <View style={styles.verifiedBadge}>
             <Feather name="check" size={10} color="#FFF" />
           </View>
         ) : null}
       </View>
-
       <View style={styles.profileRow}>
         <View style={styles.avatarWrap}>
           <Image

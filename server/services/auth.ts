@@ -398,6 +398,77 @@ export async function submitSelfie(
   }
 }
 
+export async function deleteAccount(
+  uid: string,
+): Promise<{ success: boolean; message?: string }> {
+  console.log(`[AUTH DELETE] Request to delete account for uid: ${uid}`);
+  if (!uid) {
+    return { success: false, message: "UID is required" };
+  }
+
+  try {
+    // 1) Delete Firebase Auth user (best-effort)
+    try {
+      const auth = getAuth();
+      await auth.deleteUser(uid);
+      console.log(`[AUTH DELETE] Firebase auth user deleted for uid: ${uid}`);
+    } catch (firebaseErr: any) {
+      console.warn(
+        `[AUTH DELETE] Firebase deleteUser failed for uid=${uid}:`,
+        firebaseErr?.message || firebaseErr,
+      );
+    }
+
+    // 2) Delete Firestore user document (best-effort)
+    try {
+      const db = getFirestore();
+      await db.collection("users").doc(uid).delete();
+      console.log(`[AUTH DELETE] Firestore doc deleted for uid: ${uid}`);
+    } catch (firestoreErr: any) {
+      console.warn(
+        `[AUTH DELETE] Firestore delete failed for uid=${uid}:`,
+        firestoreErr?.message || firestoreErr,
+      );
+    }
+
+    // 3) Delete related rows in PostgreSQL (best-effort)
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `DELETE FROM user_badges WHERE firebase_uid = $1`,
+          [uid],
+        );
+        await client.query(
+          `DELETE FROM users WHERE firebase_uid = $1`,
+          [uid],
+        );
+        await client.query("COMMIT");
+        console.log(`[AUTH DELETE] Postgres rows removed for uid: ${uid}`);
+      } catch (pgErr) {
+        await client.query("ROLLBACK");
+        console.warn(
+          `[AUTH DELETE] Postgres delete transaction failed for uid=${uid}:`,
+          pgErr,
+        );
+      } finally {
+        client.release();
+      }
+    } catch (poolErr) {
+      console.warn(
+        `[AUTH DELETE] Unable to connect to Postgres to remove rows for uid=${uid}:`,
+        poolErr,
+      );
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[AUTH DELETE] Uncaught error deleting uid=${uid}:`, error);
+    return { success: false, message: error?.message || "Delete failed" };
+  }
+}
+
 export async function getUserStatus(uid: string): Promise<{
   success: boolean;
   emailVerified?: boolean;

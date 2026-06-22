@@ -32,12 +32,15 @@ type ButtonSize = "sm" | "md" | "lg";
 
 // Brand button colors
 const BUTTON_COLORS = {
-  burntSienna: "#C65D3B",
-  sunsetOrange: "#E87A47",
+  saddleBrown: "#8B4513",
+  rust: "#D2691E",
+  darkSalmon: "#E9967A",
+  burntSienna: "#D2691E",
+  sunsetOrange: "#D2691E",
   white: "#FFFFFF",
   cream: "#F5EFE6",
-  disabled: "#E8E4DE",
-  disabledText: "#9A8E84",
+  disabled: "#D9A78C",
+  disabledText: "#9A6B51",
 };
 
 interface ButtonProps {
@@ -77,10 +80,10 @@ export const Button: React.FC<ButtonProps> = ({
   } => {
     switch (variant) {
       case "primary":
-        // Standardized: Burnt Sienna background
+        // Standardized: Saddle Brown primary button
         return {
           container: {
-            backgroundColor: BUTTON_COLORS.burntSienna,
+            backgroundColor: BUTTON_COLORS.saddleBrown,
             borderWidth: 0,
           },
           text: {
@@ -102,10 +105,10 @@ export const Button: React.FC<ButtonProps> = ({
         };
       case "terracotta":
       case "ember":
-        // Orange accent variant
+        // Rust accent variant
         return {
           container: {
-            backgroundColor: BUTTON_COLORS.sunsetOrange,
+            backgroundColor: BUTTON_COLORS.rust,
             borderWidth: 0,
           },
           text: {
@@ -138,15 +141,15 @@ export const Button: React.FC<ButtonProps> = ({
           useGlass: true,
         };
       case "outline":
-        // White background with Orange border
+        // White background with Rust border
         return {
           container: {
             backgroundColor: BUTTON_COLORS.white,
             borderWidth: 2,
-            borderColor: BUTTON_COLORS.sunsetOrange,
+            borderColor: BUTTON_COLORS.rust,
           },
           text: {
-            color: BUTTON_COLORS.sunsetOrange,
+            color: BUTTON_COLORS.rust,
           },
         };
       case "ghost":

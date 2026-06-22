@@ -134,7 +134,7 @@ Respond in JSON format:
         status: "error",
         confidenceScore: 0,
         isMatch: false,
-        feedback: "Unable to complete verification. Please try again.",
+        feedback: "Enabled to complete verification. Please try again.",
         details: {
           faceDetected: true,
           lightingQuality: selfieData?.lightingQuality || "fair",

@@ -5,7 +5,6 @@
  * - Travel History
  * - Privacy Vault (Live Pin vs Ghost Mode)
  * - Maintenance Tracker
- * - Private Journal
  * - AI Build Assistant
  */
 
@@ -19,6 +18,8 @@ import {
   Animated,
   Platform,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "@/hooks/useRouterCompat";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
@@ -38,15 +39,17 @@ import {
 } from "@/constants/theme";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
+import { SupportModal } from "../../components/modals/SupportModal";
 import { useMode } from "@/contexts/ModeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { RigSpecsEditor } from "@/components/passport/RigSpecsEditor";
 import { TravelHistory } from "@/components/passport/TravelHistory";
 import { MaintenanceTracker } from "@/components/passport/MaintenanceTracker";
-import { NomadJournal } from "@/components/passport/NomadJournal";
 import { RigSpecifications } from "@/services/passport/nomadPassportService";
 import PaywallScreen from "@/components/PaywallScreen";
 import { AchievementGallery } from "@/components/passport/AchievementGallery";
+
+type SupportModalType = "getting-started" | "faq" | "contact" | "bug" | null;
 
 // Mock user data
 const mockUser = {
@@ -106,8 +109,7 @@ type PassportSection =
   | "overview"
   | "rig-specs"
   | "travel-history"
-  | "maintenance"
-  | "journal";
+  | "maintenance";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -132,6 +134,8 @@ export default function ProfileScreen() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [supportModalType, setSupportModalType] = useState<SupportModalType>(null);
   const [showPaywallModal, setShowPaywallModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isSignedOut, setIsSignedOut] = useState(false);
@@ -184,6 +188,78 @@ export default function ProfileScreen() {
       fetchBadges();
     }
   }, [user?.uid]);
+
+  const handleDeleteAccount = React.useCallback(() => {
+    Alert.alert(
+      "Delete Nomad Data",
+      "Permanently delete all nomad data?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setIsSigningOut(true);
+            try {
+              // Attempt backend delete (best-effort)
+              try {
+                const baseUrl = getApiUrl();
+                const url = new URL("/api/auth/delete-account", baseUrl).href;
+                const resp = await fetch(url, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ uid: user?.uid }),
+                });
+
+                if (resp.ok) {
+                  try {
+                    const data = await resp.json();
+                    if (!data?.success) {
+                      console.warn(
+                        "Account deletion API returned non-success:",
+                        data,
+                      );
+                    }
+                  } catch {
+                    // ignore JSON parse errors
+                  }
+                } else {
+                  console.warn(
+                    "Account deletion API failed with status",
+                    resp.status,
+                  );
+                }
+              } catch (err) {
+                console.warn("Account deletion request failed:", err);
+              }
+
+              // Clear all local state to remove nomad data
+              try {
+                await AsyncStorage.clear();
+              } catch (err) {
+                console.warn("Failed clearing local storage on delete:", err);
+              }
+
+              try {
+                await logoutRevenueCat?.();
+              } catch (e) {
+                console.warn("RevenueCat logout failed:", e);
+              }
+
+              try {
+                await logout?.();
+              } catch (e) {
+                console.warn("Auth logout failed:", e);
+              }
+            } finally {
+              setIsSigningOut(false);
+              router.replace("/login" as any);
+            }
+          },
+        },
+      ],
+    );
+  }, [logout, logoutRevenueCat, router, user?.uid]);
 
   // HUD animation
   const hudGlowAnim = useRef(new Animated.Value(0.3)).current;
@@ -243,7 +319,6 @@ export default function ProfileScreen() {
     { key: "rig-specs", icon: "car-sport", label: "Rig Specs" },
     { key: "travel-history", icon: "map", label: "Travel" },
     { key: "maintenance", icon: "construct", label: "Maintenance" },
-    { key: "journal", icon: "book", label: "Journal" },
   ];
 
   const renderSectionContent = () => {
@@ -274,17 +349,6 @@ export default function ProfileScreen() {
           <MaintenanceTracker
             rigId="rig-1"
             currentMileage={mockUser.stats.milesTracked}
-          />
-        );
-      case "journal":
-        return (
-          <NomadJournal
-            userId={mockUser.id}
-            currentLocation={{
-              latitude: 38.5733,
-              longitude: -109.5498,
-              name: "Moab, UT",
-            }}
           />
         );
       default:
@@ -364,6 +428,21 @@ export default function ProfileScreen() {
               }
             />
           </TouchableOpacity>
+        </View>
+        {/* Quick-access actions: Vehicle Selection and Help (moved into Profile for demo) */}
+        <View style={styles.profileActionsRow}>
+          <Button
+            title="Vehicle Selection"
+            onPress={() => router.push("/(onboarding)/vehicle-select" as any)}
+            style={styles.profileActionButton}
+          />
+          <View style={{ marginLeft: 10 }}>
+            <Button
+              title="Help"
+              onPress={() => router.push("/(tabs)/help" as any)}
+              style={styles.profileActionButton}
+            />
+          </View>
         </View>
 
         {/* Stats Row */}
@@ -542,29 +621,6 @@ export default function ProfileScreen() {
             <Text style={styles.actionSublabel}>HUD Tracker</Text>
           </GlassCard>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => setActiveSection("journal")}
-        >
-          <GlassCard
-            variant="medium"
-            padding="md"
-            style={styles.actionCardInner}
-          >
-            <LinearGradient
-              colors={[
-                colors.burntSienna[500] + "30",
-                colors.burntSienna[600] + "15",
-              ]}
-              style={styles.actionIconBg}
-            >
-              <Ionicons name="book" size={24} color={colors.burntSienna[600]} />
-            </LinearGradient>
-            <Text style={styles.actionLabel}>Journal</Text>
-            <Text style={styles.actionSublabel}>Private Notes</Text>
-          </GlassCard>
-        </TouchableOpacity>
       </View>
 
       {/* Upgrade to Premium Card - Only show when not premium */}
@@ -630,6 +686,12 @@ export default function ProfileScreen() {
             icon: "shield-outline",
             label: "Privacy & Safety",
             onPress: () => setShowPrivacyModal(true),
+          },
+          {
+            icon: "trash-outline",
+            label: "Delete Account",
+            danger: true,
+            onPress: handleDeleteAccount,
           },
           {
             icon: "help-circle-outline",
@@ -710,6 +772,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
       </GlassCard>
+
+      {/* Delete Account Button - bottom of profile overview */}
+      <View style={styles.deleteAccountWrap}>
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.85}
+          testID="button-delete-account"
+        >
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </TouchableOpacity>
+      </View>
     </>
   );
 
@@ -744,9 +818,7 @@ export default function ProfileScreen() {
                 ? "Rig Specs"
                 : activeSection === "travel-history"
                   ? "Travel History"
-                  : activeSection === "maintenance"
-                    ? "Maintenance"
-                    : "Journal"}
+                  : "Maintenance"}
           </Text>
         </View>
 
@@ -964,30 +1036,37 @@ export default function ProfileScreen() {
               {
                 label: "Getting Started",
                 icon: "rocket",
+                type: "getting-started",
                 description: "Learn the basics",
               },
               {
                 label: "FAQs",
                 icon: "help-circle",
+                type: "faq",
                 description: "Common questions",
               },
               {
                 label: "Contact Support",
                 icon: "mail",
+                type: "contact",
                 description: "Get in touch",
               },
               {
                 label: "Report a Bug",
                 icon: "bug",
+                type: "bug",
                 description: "Help us improve",
               },
-              {
-                label: "Community Guidelines",
-                icon: "document-text",
-                description: "Our rules",
-              },
             ].map((item, idx) => (
-              <TouchableOpacity key={idx} style={modalStyles.helpItem}>
+              <TouchableOpacity
+                key={idx}
+                style={modalStyles.helpItem}
+                onPress={() => {
+                  setSupportModalType(item.type as SupportModalType);
+                  setSupportModalVisible(true);
+                  setShowHelpModal(false);
+                }}
+              >
                 <View style={modalStyles.helpIconContainer}>
                   <Ionicons
                     name={item.icon as any}
@@ -1009,6 +1088,25 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
+      </Modal>
+
+      <SupportModal
+        visible={supportModalVisible}
+        type={supportModalType}
+        onClose={() => setSupportModalVisible(false)}
+      />
+
+      {/* Deleting overlay */}
+      <Modal visible={isSigningOut} transparent animationType="fade">
+        <View style={styles.signOutOverlay}>
+          <View style={styles.signOutCard}>
+            <ActivityIndicator size="large" color={colors.sunsetOrange[500]} />
+            <Text style={styles.signOutTitle}>Deleting account</Text>
+            <Text style={styles.signOutDescription}>
+              This will remove your local data and sign you out.
+            </Text>
+          </View>
         </View>
       </Modal>
 
@@ -1928,6 +2026,14 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: spacing.sm,
   },
+  profileActionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginTop: spacing.md,
+  },
+  profileActionButton: {
+    minWidth: 140,
+  },
   statItem: {
     width: "48%",
     backgroundColor: "#F8F5F0",
@@ -2571,6 +2677,51 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     lineHeight: 18,
   },
+  signOutOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl,
+  },
+  signOutCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    alignItems: "center",
+    width: "100%",
+  },
+  signOutTitle: {
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.heading,
+    color: colors.bark[800],
+    marginTop: spacing.md,
+  },
+  signOutDescription: {
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.body,
+    color: "#4A5568",
+    textAlign: "center",
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountWrap: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.sunsetOrange[500],
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+  },
+  deleteAccountText: {
+    color: colors.sunsetOrange[500],
+    fontFamily: typography.fontFamily.bodySemiBold,
+  },
 });
 
 const modalStyles = StyleSheet.create({
@@ -2937,5 +3088,22 @@ const modalStyles = StyleSheet.create({
   settingOptionTextActive: {
     fontFamily: typography.fontFamily.bodySemiBold,
     color: colors.moss[700],
+  },
+  deleteAccountWrap: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.sunsetOrange[500],
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+  },
+  deleteAccountText: {
+    color: colors.sunsetOrange[500],
+    fontFamily: typography.fontFamily.bodySemiBold,
   },
 });

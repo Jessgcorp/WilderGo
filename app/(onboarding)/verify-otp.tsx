@@ -48,12 +48,20 @@ export default function VerifyOTPScreen() {
     const result = await verifyOTP(code);
 
     if (result.success) {
-      router.replace("/(onboarding)/vehicle-select");
+      router.push("/(onboarding)/vehicle-select");
     } else {
       setError(result.message || "Invalid code. Please try again.");
     }
 
     setLoading(false);
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(onboarding)/phone-auth");
+    }
   };
 
   const handleResend = async () => {
@@ -70,7 +78,7 @@ export default function VerifyOTPScreen() {
   };
 
   return (
-    <NatureBackground variant="forest" overlay overlayOpacity={0.45}>
+    <NatureBackground variant="utah" overlay overlayOpacity={0.55}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -86,10 +94,7 @@ export default function VerifyOTPScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Ionicons name="arrow-back" size={24} color={colors.text.inverse} />
           </TouchableOpacity>
 

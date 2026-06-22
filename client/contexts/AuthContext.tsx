@@ -33,6 +33,14 @@ type PendingAuthPayload = {
   value: string;
 } | null;
 
+type AppleSignInPayload = {
+  identityToken: string;
+  authorizationCode: string | null;
+  email?: string | null;
+  fullName?: string | null;
+  appleUserId: string;
+};
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -45,6 +53,9 @@ interface AuthContextType {
   signIn: (
     email: string,
     password: string,
+  ) => Promise<{ success: boolean; message?: string }>;
+  signInWithApple: (
+    payload: AppleSignInPayload,
   ) => Promise<{ success: boolean; message?: string }>;
   sendOTP: (
     type: AuthMethod,
@@ -82,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearServiceError = useCallback(() => setServiceError(null), []);
 
   const fetchJson = useCallback(
-    async <T = any>(input: RequestInfo, init: RequestInit = {}) => {
+    async <T = any,>(input: RequestInfo, init: RequestInit = {}) => {
       try {
         const response = await fetchWithTimeout(input, {
           ...init,
@@ -120,7 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadStoredAuth = async () => {
     try {
-      console.log("[AUTH] loadStoredAuth: reading AsyncStorage key", AUTH_STORAGE_KEY);
+      console.log(
+        "[AUTH] loadStoredAuth: reading AsyncStorage key",
+        AUTH_STORAGE_KEY,
+      );
       const stored = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -132,6 +146,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(parsed);
       } else {
         console.log("[AUTH] loadStoredAuth: no stored session");
+        // Dev auto-reviewer shortcut: set AUTO_REVIEWER=true when starting
+        // the dev server to create a local reviewer session automatically.
+        try {
+          const autoReviewer =
+            typeof process !== "undefined" &&
+            (process.env?.AUTO_REVIEWER === "true" ||
+              process.env?.EXPO_AUTO_REVIEWER === "true" ||
+              process.env?.EXPO_PUBLIC_AUTO_REVIEWER === "true");
+
+          if (autoReviewer) {
+            console.log(
+              "[AUTH] AUTO_REVIEWER detected: creating mock reviewer session",
+            );
+            const mockUser: User = {
+              uid: "reviewer",
+              id: "reviewer",
+              email: "apple-review@wildergo.com",
+              emailVerified: true,
+              selfieVerified: true,
+              selfieSubmitted: true,
+              onboardingComplete: true,
+            };
+            await saveUser(mockUser);
+            try {
+              const mockMarkers = getMarkersForMode("friends");
+              await AsyncStorage.setItem(
+                "@wildergo_mock_markers",
+                JSON.stringify(mockMarkers),
+              );
+            } catch (e) {
+              console.warn(
+                "[AUTH] AUTO_REVIEWER failed to store mock markers",
+                e,
+              );
+            }
+            setIsLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.warn("[AUTH] AUTO_REVIEWER check failed", err);
+        }
       }
     } catch (error) {
       console.error("[AUTH] loadStoredAuth: error", error);
@@ -145,224 +200,267 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
   };
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const normalizedEmail = email.toLowerCase().trim();
-    console.log(`[CLIENT SIGNUP] === Starting signup for: ${normalizedEmail} ===`);
-
-    if (isReviewerBypassEmail(normalizedEmail)) {
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const normalizedEmail = email.toLowerCase().trim();
       console.log(
-        `[CLIENT SIGNUP] Reviewer bypass active for ${normalizedEmail}. Creating local reviewer session.`,
-      );
-      const mockUser: User = {
-        uid: "reviewer",
-        id: "reviewer",
-        email: normalizedEmail,
-        emailVerified: true,
-        selfieVerified: true,
-        selfieSubmitted: true,
-        onboardingComplete: true,
-      };
-      await saveUser(mockUser);
-      return { success: true, uid: mockUser.uid } as any;
-    }
-
-    try {
-      const baseUrl = getApiUrl();
-      const url = new URL("/api/auth/signup", baseUrl).href;
-      console.log(`[CLIENT SIGNUP] Sending POST to: ${url}`);
-      console.log("Full URL being called:", url);
-      console.log(
-        `[CLIENT SIGNUP] Payload: { email: "${normalizedEmail}", password: "***" }`,
+        `[CLIENT SIGNUP] === Starting signup for: ${normalizedEmail} ===`,
       );
 
-      clearServiceError();
-      const { response, text, json } = await fetchJson(
-        new URL("/api/auth/signup", baseUrl).href,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: normalizedEmail, password }),
-        },
-      );
-
-      console.log(
-        `[CLIENT SIGNUP] Response status: ${response.status} ${response.statusText}`,
-      );
-
-      const data = json ?? { success: false, message: text || response.statusText };
-      console.log(`[CLIENT SIGNUP] Response body:`, text);
-
-      if (data.success && data.uid) {
-        console.log(`[CLIENT SIGNUP] SUCCESS - uid: ${data.uid}`);
-        const newUser: User = {
-          uid: data.uid,
-          email: email.toLowerCase().trim(),
+      if (isReviewerBypassEmail(normalizedEmail)) {
+        console.log(
+          `[CLIENT SIGNUP] Reviewer bypass active for ${normalizedEmail}. Creating local reviewer session.`,
+        );
+        const mockUser: User = {
+          uid: "reviewer",
+          id: "reviewer",
+          email: normalizedEmail,
           emailVerified: true,
           selfieVerified: true,
           selfieSubmitted: true,
           onboardingComplete: true,
         };
-        await saveUser(newUser);
-        console.log(
-          `[CLIENT SIGNUP] User saved to AsyncStorage with onboardingComplete=true, auto-navigating to home`,
-        );
-      } else {
-        console.log(`[CLIENT SIGNUP] FAILED - message: ${data.message}`);
+        await saveUser(mockUser);
+        return { success: true, uid: mockUser.uid } as any;
       }
-
-      return data;
-    } catch (error: any) {
-      console.error(`[CLIENT SIGNUP] NETWORK ERROR:`, error?.message);
-      console.error(
-        `[CLIENT SIGNUP] Error details:`,
-        JSON.stringify(error, Object.getOwnPropertyNames(error)),
-      );
-      return { success: false, message: "Network error. Please try again." };
-    }
-  }, [fetchJson]);
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    const normalizedEmail = email.toLowerCase().trim();
-
-    if (isReviewerBypassEmail(normalizedEmail)) {
-      console.log(
-        `[AUTH signIn] Reviewer bypass active for ${normalizedEmail}`,
-      );
-      const mockUser: User = {
-        uid: "reviewer",
-        id: "reviewer",
-        email: normalizedEmail,
-        emailVerified: true,
-        selfieVerified: true,
-        selfieSubmitted: true,
-        onboardingComplete: true,
-      };
-      await saveUser(mockUser);
 
       try {
-        const mockMarkers: MapMarkerData[] = getMarkersForMode("friends");
-        await AsyncStorage.setItem(
-          "@wildergo_mock_markers",
-          JSON.stringify(mockMarkers),
+        const baseUrl = getApiUrl();
+        const url = new URL("/api/auth/signup", baseUrl).href;
+        console.log(`[CLIENT SIGNUP] Sending POST to: ${url}`);
+        console.log("Full URL being called:", url);
+        console.log(
+          `[CLIENT SIGNUP] Payload: { email: "${normalizedEmail}", password: "***" }`,
         );
-      } catch (e) {
-        console.warn("[AUTH signIn] failed to store mock markers", e);
+
+        clearServiceError();
+        const { response, text, json } = await fetchJson(
+          new URL("/api/auth/signup", baseUrl).href,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: normalizedEmail, password }),
+          },
+        );
+
+        console.log(
+          `[CLIENT SIGNUP] Response status: ${response.status} ${response.statusText}`,
+        );
+
+        const data = json ?? {
+          success: false,
+          message: text || response.statusText,
+        };
+        console.log(`[CLIENT SIGNUP] Response body:`, text);
+
+        if (data.success && data.uid) {
+          console.log(`[CLIENT SIGNUP] SUCCESS - uid: ${data.uid}`);
+          const newUser: User = {
+            uid: data.uid,
+            email: email.toLowerCase().trim(),
+            emailVerified: true,
+            selfieVerified: true,
+            selfieSubmitted: true,
+            onboardingComplete: true,
+          };
+          await saveUser(newUser);
+          console.log(
+            `[CLIENT SIGNUP] User saved to AsyncStorage with onboardingComplete=true, auto-navigating to home`,
+          );
+        } else {
+          console.log(`[CLIENT SIGNUP] FAILED - message: ${data.message}`);
+        }
+
+        return data;
+      } catch (error: any) {
+        console.error(`[CLIENT SIGNUP] NETWORK ERROR:`, error?.message);
+        console.error(
+          `[CLIENT SIGNUP] Error details:`,
+          JSON.stringify(error, Object.getOwnPropertyNames(error)),
+        );
+        return { success: false, message: "Network error. Please try again." };
+      }
+    },
+    [fetchJson],
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const normalizedEmail = email.toLowerCase().trim();
+
+      if (isReviewerBypassEmail(normalizedEmail)) {
+        console.log(
+          `[AUTH signIn] Reviewer bypass active for ${normalizedEmail}`,
+        );
+        const mockUser: User = {
+          uid: "reviewer",
+          id: "reviewer",
+          email: normalizedEmail,
+          emailVerified: true,
+          selfieVerified: true,
+          selfieSubmitted: true,
+          onboardingComplete: true,
+        };
+        await saveUser(mockUser);
+
+        try {
+          const mockMarkers: MapMarkerData[] = getMarkersForMode("friends");
+          await AsyncStorage.setItem(
+            "@wildergo_mock_markers",
+            JSON.stringify(mockMarkers),
+          );
+        } catch (e) {
+          console.warn("[AUTH signIn] failed to store mock markers", e);
+        }
+
+        return { success: true, uid: mockUser.uid } as any;
       }
 
-      return { success: true, uid: mockUser.uid } as any;
-    }
+      try {
+        const baseUrl = getApiUrl();
+        const fullUrl = new URL("/api/auth/login", baseUrl).href;
 
-    try {
-      const baseUrl = getApiUrl();
-      const fullUrl = new URL("/api/auth/login", baseUrl).href;
+        console.log("[AUTH signIn] step:init", {
+          normalizedEmail,
+          baseUrl,
+          fullUrl,
+          __DEV__,
+        });
 
-      console.log("[AUTH signIn] step:init", {
-        normalizedEmail,
-        baseUrl,
-        fullUrl,
-        __DEV__,
-      });
-
-      clearServiceError();
-      const { response, text, json } = await fetchJson(
-        fullUrl,
-        {
+        clearServiceError();
+        const { response, text, json } = await fetchJson(fullUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: normalizedEmail, password }),
-        },
-      );
-
-      console.log("[AUTH signIn] step:http-response", {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      console.log("[AUTH signIn] step:body", {
-        snippet: (text || "").trim().slice(0, 240),
-        parsedJson: json != null,
-      });
-
-      if (!response.ok) {
-        console.warn("[AUTH signIn] step:fail-http", {
-          status: response.status,
-          message: json?.message,
         });
-        return {
-          success: false,
-          message:
-            json?.message ||
-            `Server error (${response.status}). Please try again.`,
-        };
-      }
 
-      const data =
-        json ??
-        ({
-          success: false,
-          message:
-            (text || "").trim().startsWith("<")
+        console.log("[AUTH signIn] step:http-response", {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+        });
+        console.log("[AUTH signIn] step:body", {
+          snippet: (text || "").trim().slice(0, 240),
+          parsedJson: json != null,
+        });
+
+        if (!response.ok) {
+          console.warn("[AUTH signIn] step:fail-http", {
+            status: response.status,
+            message: json?.message,
+          });
+          return {
+            success: false,
+            message:
+              json?.message ||
+              `Server error (${response.status}). Please try again.`,
+          };
+        }
+
+        const data =
+          json ??
+          ({
+            success: false,
+            message: (text || "").trim().startsWith("<")
               ? "Server returned an HTML error page."
               : text || response.statusText,
-        } as any);
+          } as any);
 
-      console.log("[AUTH signIn] step:parsed-payload", {
-        success: data?.success,
-        hasUid: Boolean(data?.uid),
-        emailVerified: data?.emailVerified,
-        selfieVerified: data?.selfieVerified,
-        onboardingComplete: data?.onboardingComplete,
-        message: data?.message,
-      });
-
-      if (data.success && data.uid) {
-        console.log("[AUTH signIn] step:save-user", { uid: data.uid });
-        const newUser: User = {
-          uid: data.uid,
-          email: normalizedEmail,
-          emailVerified: Boolean(data.emailVerified),
-          selfieVerified: Boolean(data.selfieVerified),
-          selfieSubmitted: Boolean(
-            data.selfieSubmitted ?? data.selfieVerified,
-          ),
-          invitedBy: data.invitedBy,
-          // Keep signed-in users out of a dead-end onboarding loop when Firestore
-          // has not yet set onboardingComplete.
-          onboardingComplete: true,
-        };
-        await saveUser(newUser);
-        console.log("[AUTH signIn] step:done-ok", {
-          onboardingComplete: newUser.onboardingComplete,
-        });
-      } else {
-        console.warn("[AUTH signIn] step:done-no-session", {
+        console.log("[AUTH signIn] step:parsed-payload", {
           success: data?.success,
+          hasUid: Boolean(data?.uid),
+          emailVerified: data?.emailVerified,
+          selfieVerified: data?.selfieVerified,
+          onboardingComplete: data?.onboardingComplete,
           message: data?.message,
         });
-      }
 
-      return data;
-    } catch (error: any) {
-      if (error?.name === "AbortError") {
-        console.warn("[AUTH signIn] step:abort-timeout");
+        if (data.success && data.uid) {
+          console.log("[AUTH signIn] step:save-user", { uid: data.uid });
+          const newUser: User = {
+            uid: data.uid,
+            email: normalizedEmail,
+            emailVerified: Boolean(data.emailVerified),
+            selfieVerified: Boolean(data.selfieVerified),
+            selfieSubmitted: Boolean(
+              data.selfieSubmitted ?? data.selfieVerified,
+            ),
+            invitedBy: data.invitedBy,
+            // Keep signed-in users out of a dead-end onboarding loop when Firestore
+            // has not yet set onboardingComplete.
+            onboardingComplete: true,
+          };
+          await saveUser(newUser);
+          console.log("[AUTH signIn] step:done-ok", {
+            onboardingComplete: newUser.onboardingComplete,
+          });
+        } else {
+          console.warn("[AUTH signIn] step:done-no-session", {
+            success: data?.success,
+            message: data?.message,
+          });
+        }
+
+        return data;
+      } catch (error: any) {
+        if (error?.name === "AbortError") {
+          console.warn("[AUTH signIn] step:abort-timeout");
+          return {
+            success: false,
+            message:
+              "The server is taking too long to respond. Please try again later.",
+          };
+        }
+        console.error("[AUTH signIn] step:exception", {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack,
+        });
         return {
           success: false,
-          message: "The server is taking too long to respond. Please try again later.",
+          message:
+            error?.message ||
+            "Unable to reach the authentication service. Please check your connection and try again.",
         };
       }
-      console.error("[AUTH signIn] step:exception", {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-      });
+    },
+    [fetchJson],
+  );
+
+  const signInWithApple = useCallback(async (payload: AppleSignInPayload) => {
+    if (!payload?.identityToken) {
+      return {
+        success: false,
+        message: "Apple sign-in failed: missing identity token.",
+      };
+    }
+
+    try {
+      const appleEmail = payload.email?.toLowerCase() || "";
+      const newUser: User = {
+        uid: `apple-${payload.appleUserId}`,
+        id: `apple-${payload.appleUserId}`,
+        email: appleEmail,
+        emailVerified: true,
+        selfieVerified: false,
+        selfieSubmitted: false,
+        onboardingComplete: true,
+        displayName: payload.fullName || undefined,
+      };
+
+      await saveUser(newUser);
+
+      return { success: true, message: "Signed in with Apple." };
+    } catch (error: any) {
+      console.error("[AUTH signInWithApple] error", error);
       return {
         success: false,
         message:
           error?.message ||
-          "Unable to reach the authentication service. Please check your connection and try again.",
+          "Unable to complete Apple sign-in. Please try again.",
       };
     }
-  }, [fetchJson]);
+  }, []);
 
   const resendVerification = useCallback(async () => {
     if (!user) return { success: false, message: "Not authenticated" };
@@ -549,6 +647,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         pendingAuth,
         signUp,
         signIn,
+        signInWithApple,
         sendOTP,
         verifyOTP,
         resendVerification,
@@ -579,6 +678,10 @@ export function useAuth() {
       }),
       pendingAuth: null,
       signIn: async () => ({
+        success: false,
+        message: "Auth provider not ready",
+      }),
+      signInWithApple: async () => ({
         success: false,
         message: "Auth provider not ready",
       }),

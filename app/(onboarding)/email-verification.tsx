@@ -90,7 +90,7 @@ export default function EmailVerificationScreen() {
   };
 
   return (
-    <NatureBackground variant="forest" overlay overlayOpacity={0.45}>
+    <NatureBackground variant="utah" overlay overlayOpacity={0.45}>
       <View
         style={[
           styles.container,

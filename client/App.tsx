@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect } from "react";
 import { StyleSheet, View, Text, useColorScheme } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -15,10 +14,16 @@ import {
   Figtree_700Bold,
 } from "@expo-google-fonts/figtree";
 
+declare global {
+  var urgencyLevel: string | undefined;
+}
+
+globalThis.urgencyLevel ??= "normal";
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
 
-import MainTabNavigator from "@/navigation/MainTabNavigator";
+import ExploreScreen from "../app/(tabs)/explore";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ModeProvider } from "@/contexts/ModeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -69,9 +74,7 @@ export default function App() {
               <GestureHandlerRootView style={styles.root}>
                 <KeyboardProvider>
                   <View style={styles.container} onLayout={onLayoutRootView}>
-                    <NavigationContainer>
-                      <MainTabNavigator />
-                    </NavigationContainer>
+                    <ExploreScreen />
                   </View>
                   <StatusBar style="dark" />
                 </KeyboardProvider>

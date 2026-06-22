@@ -336,7 +336,9 @@ export const insertTravelSpotSchema = createInsertSchema(travelSpots).omit({
   createdAt: true,
 });
 
-export const insertCampfireEventSchema = createInsertSchema(campfireEvents).omit({
+export const insertCampfireEventSchema = createInsertSchema(
+  campfireEvents,
+).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

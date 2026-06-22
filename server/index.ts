@@ -39,7 +39,7 @@ function setupCors(app: express.Application) {
     }
 
     if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
+      process.env.REPLIT_DOMAINS.split(",").forEach((d: string) => {
         origins.add(`https://${d.trim()}`);
       });
     }
@@ -180,12 +180,12 @@ function serveLandingPage({
 }
 
 function configureExpoAndLanding(app: express.Application) {
- const templatePath = path.resolve(
-  process.cwd(),
-  "templates",
-  "landing-page.html",
-);
- const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  const templatePath = path.resolve(
+    process.cwd(),
+    "templates",
+    "landing-page.html",
+  );
+  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
 
   log("Serving static Expo files with dynamic manifest routing");
@@ -267,7 +267,7 @@ function setupErrorHandler(app: express.Application) {
   });
 
   app.get("/status", (_req: Request, res: Response) => {
-    res.json({ status: "online", version: "1.0.1" });
+    res.json({ status: "online", version: "1.0.50" });
   });
 
   app.use("/api/auth", authRoutes);

@@ -81,7 +81,9 @@ export function useNotifications(): UseNotificationsReturn {
       if (!data?.type) return;
 
       // Navigation would be handled by the app's navigation context
-      // This is a placeholder for the actual implementation
+      // Navigation for notification interactions is handled by the app's
+      // navigation context. Implement app-specific routing here to map
+      // notification `type` values to the appropriate screens.
       console.log("Navigate based on notification type:", data.type);
 
       // Example navigation patterns:

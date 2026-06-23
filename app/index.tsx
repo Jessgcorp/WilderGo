@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { safeReplace } from "./lib/safeRouter";
 import { colors, typography, spacing } from "@/constants/theme";
 import { Logo } from "@/components/ui/Logo";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,10 +19,21 @@ export default function SplashScreen() {
   const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
+    // Wait until the auth state has finished loading
     if (isLoading) return;
 
-    router.replace("/(auth)/login" as any);
-  }, [isLoading, router]);
+    // If there's no user, go to the visible login flow.
+    // If the user exists, navigate to a safe, known authenticated route.
+    // Avoid navigating to undefined routes (which causes the crash "trying to
+    // navigate to a screen that is not defined in the navigator").
+    if (!user) {
+      safeReplace(router, "./(auth)/login".replace('./', '/'));
+    } else {
+      // Use a safe authenticated landing route that exists in the project.
+      // The tabs layout exposes an "explore" screen, so navigate there.
+      safeReplace(router, "./(tabs)/explore".replace('./', '/'));
+    }
+  }, [isLoading, user, router]);
 
   useEffect(() => {
     Animated.parallel([

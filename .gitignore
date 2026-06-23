@@ -35,6 +35,11 @@ yarn-error.*
 .env.local
 .env*.local
 
+# iOS / Firebase config - never commit these plist files containing API keys
+# Ignore any GoogleService-Info.plist in the repo (root or nested)
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
 # Firebase service account (never commit)
 firebase-service-account.json
 *-firebase-adminsdk-*.json

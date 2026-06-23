@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { safeReplace } from "../lib/safeRouter";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,7 +35,9 @@ export default function AuthLoginScreen() {
 
   useEffect(() => {
     if (user) {
-      router.replace("/dashboard");
+      // Ensure navigating to a defined route. Use safeReplace to avoid throwing
+      // if the target route is not available for any reason.
+      safeReplace(router, "/(tabs)/explore");
     }
   }, [user, router]);
 
@@ -51,7 +54,8 @@ export default function AuthLoginScreen() {
 
     const result = await signIn(normalizedEmail, password);
     if (result.success) {
-      router.replace("/dashboard");
+      // Use a safe authenticated landing route
+      safeReplace(router, "/(tabs)/explore");
     } else {
       setError(result.message || "Sign in failed. Please try again.");
     }
